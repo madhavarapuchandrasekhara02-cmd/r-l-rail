@@ -1,0 +1,1056 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* ── Luxury Ayurvedic Editorial Palette ── */
+    --bg-primary: #F3E9D7;
+    /* Sandalwood Parchment */
+    --bg-secondary: #EADCC8;
+    /* Aged Paper */
+    --text-dark: #3B2F21;
+    /* Deep Herbal Brown */
+    --muted-brown: #7B6856;
+    --muted-sage: #7E8B78;
+    --soft-gold: #C5A059;
+    /* Antique Gold */
+    --border-soft: rgba(80, 60, 40, 0.1);
+
+    /* ── shadcn token compat ── */
+    --background: 35 44% 85%;
+    /* #EADCC8 */
+    --foreground: 24 28% 14%;
+    /* #2D241C */
+
+    --card: 35 39% 79%;
+    /* #DFCDB4 */
+    --card-foreground: 24 28% 14%;
+
+    --popover: 38 32% 94%;
+    --popover-foreground: 24 28% 14%;
+
+    --primary: 30 28% 58%;
+    /* #B89B72 */
+    --primary-foreground: 38 32% 94%;
+
+    --secondary: 34 30% 90%;
+    --secondary-foreground: 30 28% 58%;
+
+    --muted: 30 18% 82%;
+    --muted-foreground: 26 18% 40%;
+    /* #7B6856 */
+
+    --accent: 30 28% 58%;
+    --accent-foreground: 24 28% 14%;
+
+    --destructive: 6 55% 49%;
+    --destructive-foreground: 38 32% 94%;
+
+    --border: 30 28% 58%;
+    --input: 35 20% 78%;
+    --ring: 30 28% 58%;
+
+    --radius: 1rem;
+
+    --sidebar-background: 34 30% 90%;
+    --sidebar-foreground: 24 28% 14%;
+    --sidebar-primary: 30 28% 58%;
+    --sidebar-primary-foreground: 38 32% 94%;
+    --sidebar-accent: 34 30% 90%;
+    --sidebar-accent-foreground: 30 28% 58%;
+    --sidebar-border: 30 28% 58%;
+    --sidebar-ring: 30 28% 58%;
+
+    /* ── Luxury Footer & Background Palette ── */
+    --footer-bg: #1A1410;
+    /* Deep Espresso */
+    --footer-gold: #C5A059;
+    /* Antique Gold */
+    --footer-gold-muted: rgba(197, 160, 89, 0.4);
+    --footer-ivory: #FDFBF7;
+    /* Luxury Ivory */
+    --parchment-alpha: rgba(243, 233, 215, 0.05);
+
+    /* ── Shadows (warm-tinted, luxury depth) ── */
+    --shadow-sm: 0 2px 4px rgba(45, 36, 28, 0.05);
+    --shadow-md: 0 6px 16px rgba(45, 36, 28, 0.07);
+    --shadow-lg: 0 16px 40px rgba(45, 36, 28, 0.10);
+    --shadow-xl: 0 32px 64px rgba(45, 36, 28, 0.14);
+    --shadow-cta: 0 6px 18px rgba(184, 155, 114, 0.25);
+    --shadow-cta-hover: 0 10px 24px rgba(184, 155, 114, 0.35);
+    --shadow-hero-img: 0 40px 120px rgba(40, 25, 10, 0.12);
+
+    /* ── Luxury Transition ── */
+    --luxury-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border/20;
+  }
+
+  body {
+    @apply bg-[var(--bg-primary)] text-[var(--text-dark)] antialiased;
+    font-family: var(--font-dm-sans), 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* ── Subtle Handmade Paper Texture Overlay ── */
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.045;
+    /* Refined for Sandalwood background */
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    mix-blend-mode: multiply;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-cormorant), 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+    @apply font-medium tracking-tight;
+  }
+}
+
+@media (max-width: 767px) {
+  h2 {
+    font-size: 32px !important;
+  }
+
+  h3 {
+    font-size: 20px !important;
+  }
+
+  p {
+    font-size: 14px !important;
+    line-height: 1.6 !important;
+  }
+
+  .hero-heading-responsive {
+    font-size: 32px !important;
+    line-height: 1.2 !important;
+  }
+
+  .hero-p-responsive {
+    font-size: 14px !important;
+    line-height: 1.6 !important;
+  }
+}
+
+.hero-heading-responsive {
+  font-size: 42px;
+  line-height: 1.1;
+}
+
+.hero-p-responsive {
+  font-size: 16px;
+  line-height: 1.7;
+}
+
+.testimonial-text-responsive {
+  font-size: 22px;
+  line-height: 1.6;
+}
+
+/* ── Premium Editorial Footer ── */
+.footer-ritual {
+  background: var(--footer-bg);
+  color: var(--footer-ivory);
+  padding: 30px 0 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.footer-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, transparent 0%, rgba(0, 0, 0, 0.4) 100%);
+  pointer-events: none;
+}
+
+.footer-logo-glow {
+  position: absolute;
+  top: 50px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(197, 160, 89, 0.12) 0%, transparent 70%);
+  pointer-events: none;
+  filter: blur(40px);
+}
+
+.footer-header {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.25em;
+  font-weight: 700;
+  color: var(--footer-gold);
+  margin-bottom: 28px;
+  font-family: 'DM Sans', sans-serif;
+  opacity: 0.9;
+}
+
+.footer-link {
+  font-size: 14px;
+  color: rgba(253, 251, 247, 0.6);
+  transition: all 0.4s var(--luxury-ease);
+  font-family: 'DM Sans', sans-serif;
+  position: relative;
+  display: inline-block;
+  text-decoration: none;
+}
+
+.footer-link::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background: var(--footer-gold);
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform 0.4s var(--luxury-ease);
+  opacity: 0.6;
+}
+
+.footer-link:hover {
+  color: var(--footer-ivory);
+  transform: translateY(-2px);
+}
+
+.footer-link:hover::after {
+  transform: scaleX(1);
+  transform-origin: left;
+}
+
+.footer-separator {
+  height: 1px;
+  width: 100%;
+  background: linear-gradient(to right, transparent, rgba(197, 160, 89, 0.15), transparent);
+  margin: 60px 0 40px;
+}
+
+/* ── Mobile & Tablet Luxury Overhaul ── */
+@media (max-width: 1279px) {
+
+  /* Global Spacing & Layout */
+  .luxury-section {
+    padding-top: 32px !important;
+    padding-bottom: 32px !important;
+  }
+
+  .luxury-container {
+    padding-left: 18px !important;
+    padding-right: 18px !important;
+  }
+
+  /* Tablet Hero Section (Default to Auto) */
+  .hero-split-container {
+    display: block !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: auto !important;
+    border-radius: 0 !important;
+  }
+
+  .hero-image-side,
+  .hero-banner-container {
+    height: auto !important;
+    width: 100% !important;
+  }
+
+  .hero-banner-image {
+    height: auto !important;
+    width: 100% !important;
+    object-fit: contain !important;
+    /* Zero cropping */
+  }
+
+  .hero-text-side {
+    display: none !important;
+    /* Keep focus on banner for tablet/mobile */
+  }
+
+  /* Mobile-Specific Overrides (<= 767px) */
+  @media (max-width: 767px) {
+    .hero-split-container {
+      height: 212px !important;
+      max-height: 212px !important;
+      min-height: 212px !important;
+    }
+
+    .hero-banner-image {
+      height: 100% !important;
+      object-fit: contain !important;
+    }
+  }
+
+  /* Mobile Typography */
+  .hero-heading-responsive {
+    font-size: clamp(2rem, 7vw, 3rem) !important;
+    line-height: 1.05 !important;
+    font-weight: 500 !important;
+    letter-spacing: -0.02em !important;
+  }
+
+  .hero-p-responsive {
+    font-size: 0.95rem !important;
+    line-height: 1.7 !important;
+    opacity: 0.8 !important;
+  }
+
+  h2 {
+    font-size: 1.8rem !important;
+    line-height: 1.2 !important;
+  }
+
+  .product-card-title {
+    font-size: 0.92rem !important;
+    line-height: 1.4 !important;
+  }
+
+  .label-luxury-small {
+    font-size: 0.7rem !important;
+    letter-spacing: 0.15em !important;
+    opacity: 0.7;
+  }
+
+  /* Mobile Hero Section */
+  .hero-wrapper {
+    margin-top: 54px !important;
+    /* Thinner navbar adjustment */
+    margin-bottom: 20px !important;
+    padding: 0 !important;
+    /* Edge-to-edge for mobile */
+    max-width: 100% !important;
+  }
+
+  .hero-split-container {
+    height: auto !important;
+    /* Let image define height */
+    max-height: none !important;
+    min-height: auto !important;
+    border-radius: 0 !important;
+  }
+
+  .hero-banner-image {
+    width: 100vw !important;
+    height: auto !important;
+    object-fit: contain !important;
+  }
+
+  /* Mobile Buttons */
+  .btn-ritual-primary,
+  .btn-ritual-secondary {
+    height: 42px !important;
+    border-radius: 999px !important;
+    font-size: 0.8rem !important;
+    letter-spacing: 0.08em !important;
+    padding: 0 24px !important;
+    box-shadow: 0 4px 12px rgba(59, 47, 33, 0.15) !important;
+  }
+
+  /* Mobile Category Cards */
+  .ritual-card-zoom {
+    aspect-ratio: 1 / 1 !important;
+    width: 100% !important;
+    border-radius: 26px !important;
+    padding: 12px !important;
+    /* Reduced padding */
+    overflow: hidden !important;
+  }
+
+
+
+  .ritual-card-zoom h3 {
+    font-size: 1rem !important;
+    /* Reduced from 1.1rem */
+    margin-bottom: 2px !important;
+  }
+
+
+
+
+
+  .ritual-card-overlay {
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.3) 60%, rgba(0, 0, 0, 0.1) 100%) !important;
+  }
+
+  .testimonial-text-responsive {
+    font-size: 15px !important;
+    line-height: 1.5 !important;
+  }
+
+  /* ── Compact Luxury Footer Overrides ── */
+  .footer-ritual {
+    background: #1F1A17 !important;
+    /* Luxury Deep Earthy Tone */
+    padding-top: 32px !important;
+    padding-bottom: 32px !important;
+  }
+
+  .footer-logo-mobile {
+    height: 54px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .footer-ritual h3 {
+    font-size: 10px !important;
+    letter-spacing: 0.15em !important;
+    color: var(--soft-gold) !important;
+    margin-bottom: 16px !important;
+  }
+
+  .footer-ritual p,
+  .footer-ritual a {
+    font-size: 12px !important;
+    color: rgba(243, 233, 215, 0.6) !important;
+    /* Warm Parchment Beige */
+  }
+
+  .footer-ritual .luxury-container>div:first-child {
+    gap: 16px !important;
+    /* Tighter column spacing */
+  }
+
+  /* Heritage Story Mobile */
+  .heritage-img-mobile {
+    max-height: 280px !important;
+    object-fit: cover !important;
+    border-radius: 20px !important;
+  }
+
+  /* Mobile Navbar */
+  .navbar-editorial {
+    height: 54px !important;
+    backdrop-filter: blur(12px) !important;
+    background: rgba(243, 233, 215, 0.85) !important;
+    border-bottom: 0.5px solid rgba(197, 160, 89, 0.2) !important;
+  }
+
+  .navbar-editorial--scrolled {
+    height: 54px !important;
+  }
+
+  /* Decorative Cleanup */
+  .ornamental-border-side {
+    display: none !important;
+  }
+}
+
+.label-luxury-small {
+  font-size: 12px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--soft-gold);
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 600;
+}
+
+/* ── Luxury Utility Classes & Glassmorphism ── */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
+}
+
+.luxury-transition {
+  transition: all 0.45s var(--luxury-ease);
+}
+
+.luxury-container {
+  max-width: 1440px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+.page-content-wrapper {
+  margin-left: 52px;
+  margin-right: 52px;
+  position: relative;
+  z-index: 2;
+  padding-top: 10px;
+  /* Minimal padding for maximum overlap */
+}
+
+.with-navbar-padding {
+  padding-top: 88px !important;
+  /* Navbar height (78px) + 10px extra */
+}
+
+@media (max-width: 1023px) {
+  .luxury-container {
+    max-width: 100%;
+    padding-left: 40px;
+    padding-right: 40px;
+  }
+
+  .page-content-wrapper {
+    padding-top: 10px;
+    /* Minimal padding for maximum overlap */
+  }
+
+  .with-navbar-padding {
+    padding-top: 74px !important;
+    /* Navbar (64px) + 10px */
+  }
+}
+
+@media (max-width: 767px) {
+  .ornamental-border {
+    display: none !important;
+  }
+
+  .page-content-wrapper {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-top: 8px;
+    /* Minimal padding for maximum overlap */
+  }
+
+  .with-navbar-padding {
+    padding-top: 64px !important;
+    /* Navbar (54px) + 10px */
+  }
+
+  .luxury-container {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+}
+
+/* ── Section Spacing ── */
+.luxury-section {
+  padding-top: 120px;
+  padding-bottom: 120px;
+}
+
+@media (max-width: 1023px) {
+  .luxury-section {
+    padding-top: 88px;
+    padding-bottom: 88px;
+  }
+}
+
+@media (max-width: 767px) {
+  .luxury-section {
+    padding-top: 64px;
+    padding-bottom: 64px;
+  }
+}
+
+/* ── Ornamental Border Layer ── */
+.ornamental-border {
+  position: absolute;
+  top: 0;
+  width: 52px;
+  height: 100%;
+  z-index: 500;
+  /* Behind navbar and main components */
+  opacity: 0.8;
+  pointer-events: none;
+  background-image: url('/patterns/ornamental-border-v2.svg');
+  background-repeat: repeat-y;
+  background-size: 52px 52px;
+  background-position: center top;
+  display: block;
+}
+
+.ornamental-border--left {
+  left: 0;
+}
+
+.ornamental-border--right {
+  right: 0;
+  transform: scaleX(-1);
+}
+
+/* ── Hide Scrollbar Utility ── */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+
+/* ── Animations ── */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes gentleZoom {
+  from {
+    transform: scale(1);
+  }
+
+  to {
+    transform: scale(1.04);
+  }
+}
+
+@keyframes glass-pan {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animate-glass-pan {
+  background-size: 200% 200%;
+  animation: glass-pan 20s ease-in-out infinite;
+}
+
+.animate-fade-up {
+  animation: fadeUp 0.8s var(--luxury-ease) both;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.6s var(--luxury-ease) both;
+}
+
+/* ── Luxury Split Hero ── */
+.hero-wrapper {
+  width: 100%;
+  max-width: 1600px;
+  margin: 78px auto 10px;
+  /* 10px bottom margin for trust strip visibility */
+  padding: 0 20px;
+}
+
+.hero-split-container {
+  display: flex;
+  width: 100%;
+  height: 450px;
+  /* More compact editorial frame */
+  background: var(--bg-secondary);
+  border-radius: 28px;
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+}
+
+.hero-text-side {
+  flex: 1;
+  padding: 32px;
+  /* Further reduced for 450px height */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-soft);
+}
+
+.hero-image-side {
+  flex: 2;
+  position: relative;
+  background: var(--bg-primary);
+}
+
+.hero-banner-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.hero-banner-image {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  /* Back to cover to fill the 2/3 space elegantly */
+}
+
+/* ── Hero Carousel & Cinematic Animations ── */
+.embla {
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.embla__container {
+  display: flex;
+  height: 100%;
+}
+
+.embla__slide {
+  flex: 0 0 100%;
+  min-width: 0;
+  position: relative;
+  height: 100%;
+}
+
+.pagination-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(45, 36, 28, 0.15);
+  transition: all 0.6s var(--luxury-ease);
+}
+
+.pagination-dot--active {
+  width: 28px;
+  background: var(--soft-gold);
+}
+
+.arrow-blur {
+  background: rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: var(--text-dark);
+}
+
+.arrow-minimal-large {
+  background: transparent;
+  backdrop-filter: none;
+  border: none;
+  color: var(--text-dark);
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.arrow-minimal-large svg {
+  width: 32px;
+  height: 32px;
+  stroke-width: 1px;
+}
+
+/* ── Luxury Editorial Navbar ── */
+.navbar-editorial {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  height: 78px;
+  background: var(--bg-primary);
+  border-bottom: 1px solid rgba(90, 70, 50, 0.08);
+  box-shadow: 0 2px 12px rgba(50, 30, 10, 0.03);
+  z-index: 999;
+  transition: all 0.4s var(--luxury-ease);
+}
+
+.navbar-editorial--scrolled {
+  height: 72px;
+  border-bottom: 1px solid rgba(90, 70, 50, 0.06);
+  box-shadow: 0 8px 24px rgba(40, 25, 10, 0.04);
+}
+
+.navbar-inner {
+  max-width: 1440px;
+  height: 100%;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+}
+
+.nav-link-editorial {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  color: #3B2F21; /* Full opacity by default */
+  transition: all 0.6s var(--luxury-ease);
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
+}
+
+.nav-link-editorial:hover,
+.nav-link-editorial--active {
+  opacity: 1;
+  color: #1A1410;
+  letter-spacing: 0.15em;
+  text-shadow: 0 0 12px rgba(197, 160, 89, 0.15);
+}
+
+.nav-link-editorial::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--soft-gold), transparent);
+  transition: width 0.8s var(--luxury-ease);
+  opacity: 0.3;
+}
+
+.nav-link-editorial--active::after {
+  width: 120%;
+}
+
+@media (max-width: 1023px) {
+  .navbar-editorial {
+    height: 70px;
+  }
+
+  .navbar-inner {
+    grid-template-columns: auto 1fr auto;
+    padding: 0 18px;
+  }
+}
+
+@media (max-width: 767px) {
+  .navbar-editorial {
+    height: 64px;
+  }
+
+  .navbar-inner {
+    padding: 0 16px;
+  }
+}
+
+/* ── Mobile Menu Panel ── */
+.mobile-menu-panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100vh;
+  background: var(--bg-primary);
+  z-index: 1000;
+  padding-top: 80px;
+  padding-bottom: 40px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mobile-nav-link {
+  font-size: 20px;
+  font-weight: 400;
+  letter-spacing: 0.03em;
+  color: #2D241C;
+  display: block;
+}
+
+/* ── Premium Buttons ── */
+.btn-ritual-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 56px;
+  padding: 0 36px;
+  border-radius: 999px;
+  background: var(--text-dark);
+  color: #F3E9D7;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  transition: all 0.45s var(--luxury-ease);
+  box-shadow: var(--shadow-cta);
+}
+
+.btn-ritual-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(197, 160, 89, 0.3);
+  background: #4A3C2B;
+}
+
+.btn-ritual-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 56px;
+  padding: 0 36px;
+  border-radius: 999px;
+  border: 1px solid var(--soft-gold);
+  color: var(--text-dark);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  transition: all 0.45s var(--luxury-ease);
+}
+
+.btn-ritual-secondary:hover {
+  background: rgba(197, 160, 89, 0.05);
+  transform: translateY(-1px);
+}
+
+/* ── Trust Strip ── */
+.trust-strip {
+  background: var(--bg-primary);
+  border-top: 1px solid var(--border-soft);
+  border-bottom: 1px solid var(--border-soft);
+  padding: 15px 0;
+  /* Reduced as requested */
+  overflow: hidden;
+}
+
+.trust-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: trust-marquee 40s linear infinite;
+}
+
+.trust-marquee-track:hover {
+  animation-play-state: paused;
+}
+
+@keyframes trust-marquee {
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+@media (max-width: 1023px) {
+  .trust-strip {
+    padding: 10px 0;
+  }
+}
+
+/* ── Luxury Sections ── */
+.luxury-section {
+  padding: 60px 0;
+}
+
+/* ── Ritual Category Cards ── */
+.ritual-card-zoom {
+  overflow: hidden;
+  position: relative;
+  aspect-ratio: 1 / 1;
+  border-radius: 32px;
+  box-shadow: var(--shadow-lg);
+}
+
+
+
+
+.ritual-card-zoom img {
+  transition: transform 1.2s var(--luxury-ease);
+}
+
+.ritual-card-zoom:hover img {
+  transform: scale(1.08);
+}
+
+.ritual-card-overlay {
+  background: linear-gradient(to top, rgba(59, 47, 33, 0.7) 0%, rgba(59, 47, 33, 0.1) 60%, transparent 100%);
+}
+
+/* ── Footer Luxury ── */
+.footer-ritual {
+  background: #1B261D;
+  /* Deep Herbal Green */
+  color: #EADCC8;
+  padding: 80px 0 40px;
+}
+
+.footer-ritual h3 {
+  color: var(--soft-gold);
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+/* -- Luxury Ritual Tabs -- */
+.ritual-tab {
+  @apply whitespace-nowrap px-5 py-2.5 rounded-full text-[13px] tracking-[0.05em] transition-all duration-500 flex items-center gap-2 cursor-pointer shrink-0 border relative;
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 600;
+}
+
+.ritual-tab--active {
+  background: linear-gradient(135deg, #3B2F21 0%, #2D241B 100%);
+  color: #F3E9D7;
+  border-color: #C5A059;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15), inset 0 0 15px rgba(197, 160, 89, 0.1);
+  transform: translateY(-2px) scale(1.02);
+}
+
+.ritual-tab:active {
+  transform: scale(0.95);
+  transition: transform 0.1s;
+}
+
+.ritual-tab--active::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, #C5A059, #8B7355);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.8;
+}
+
+.ritual-tab--inactive {
+  background: rgba(240, 230, 217, 0.4);
+  backdrop-filter: blur(8px);
+  color: #8B7355;
+  border-color: rgba(197, 160, 89, 0.15);
+}
+
+.ritual-tab--inactive:hover {
+  border-color: #C5A059;
+  color: #3B2F21;
+  background: rgba(240, 230, 217, 0.7);
+  transform: translateY(-1px);
+}

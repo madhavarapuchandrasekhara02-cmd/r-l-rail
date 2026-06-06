@@ -1,0 +1,41 @@
+/* ── Floating Botanicals — Premium Corner Leaves ── */
+.botanicals-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.botanical-leaf {
+  position: absolute;
+  pointer-events: none;
+  will-change: transform;
+}
+
+/* Gentle sway animations */
+@keyframes leafSway1 {
+  0%, 100% { transform: var(--base-transform) translateY(0px) rotate(0deg); }
+  50%      { transform: var(--base-transform) translateY(-8px) rotate(1.5deg); }
+}
+@keyframes leafSway2 {
+  0%, 100% { transform: var(--base-transform) translateY(0px) rotate(0deg); }
+  50%      { transform: var(--base-transform) translateY(6px) rotate(-2deg); }
+}
+@keyframes leafSway3 {
+  0%, 100% { transform: var(--base-transform) translateY(0px) rotate(0deg); }
+  50%      { transform: var(--base-transform) translateY(-12px) rotate(2deg); }
+}
+
+.leaf-sway-1 { animation: leafSway1 var(--dur, 8s) ease-in-out infinite alternate; }
+.leaf-sway-2 { animation: leafSway2 var(--dur, 10s) ease-in-out infinite alternate; }
+.leaf-sway-3 { animation: leafSway3 var(--dur, 7s) ease-in-out infinite alternate; }
+
+/* Mobile — fewer, smaller leaves */
+@media (max-width: 768px) {
+  .leaf-hide-mobile { display: none !important; }
+  .botanical-leaf svg {
+    width: 60% !important;
+    height: 60% !important;
+  }
+}

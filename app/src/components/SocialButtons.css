@@ -1,0 +1,63 @@
+.social-button {
+  background: transparent;
+  position: relative;
+  padding: 8px 18px; /* Increased by 3px from 5px 15px */
+  display: flex;
+  align-items: center;
+  gap: 10px; /* Space between icon and text */
+
+  font-size: 17px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  border: 1px solid var(--brand-color);
+  border-radius: 25px;
+  outline: none;
+  overflow: hidden;
+  color: var(--brand-color);
+  transition: color 0.3s 0.1s ease-out;
+  text-align: center;
+  width: fit-content;
+  isolation: isolate; /* Create new stacking context */
+}
+
+.social-button span,
+.social-button svg {
+  position: relative;
+  z-index: 2;
+}
+
+.social-button::before {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  content: '';
+  border-radius: 50%;
+  display: block;
+  width: 25em;
+  height: 25em;
+  transform: translate(-50%, -50%); /* Center perfectly */
+  text-align: center;
+  transition: box-shadow 0.5s ease-out;
+  z-index: -1;
+  pointer-events: none;
+}
+
+
+.social-button:hover {
+  color: #fff;
+  border: 1px solid var(--brand-color);
+}
+
+.social-button:hover::before {
+  box-shadow: inset 0 0 0 15em var(--brand-color);
+}
+
+
+.instagram-btn {
+  --brand-color: #E4405F;
+}
+
+.youtube-btn {
+  --brand-color: #FF0000;
+}

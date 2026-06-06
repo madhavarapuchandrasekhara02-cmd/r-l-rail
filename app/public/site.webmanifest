@@ -1,0 +1,21 @@
+{
+  "name": "Roots & Leaves",
+  "short_name": "Roots & Leaves",
+  "description": "South India's Premium Herbal Hair Wellness Brand",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F3E9D7",
+  "theme_color": "#F3E9D7",
+  "icons": [
+    {
+      "src": "/roots-logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/roots-logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

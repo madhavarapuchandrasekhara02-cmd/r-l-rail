@@ -1,0 +1,97 @@
+.whatsapp-wrapper {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.whatsapp-button {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.whatsapp-icon-container {
+  width: 60px;
+  height: 60px;
+  background-color: #25D366;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  box-shadow: 0 4px 15px rgba(37, 211, 102, 0.3);
+  transition: all 0.3s ease;
+}
+
+.whatsapp-tooltip {
+  background-color: #1a1a1a;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 100px;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+  opacity: 1;
+  transform: translateX(0);
+  transition: all 0.3s ease;
+  font-family: inherit;
+}
+
+/* Desktop Hover Effects */
+@media (min-width: 1024px) {
+  .whatsapp-tooltip {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+
+  .whatsapp-button:hover .whatsapp-tooltip {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  .whatsapp-button:hover .whatsapp-icon-container {
+    transform: scale(1.1);
+    box-shadow: 0 6px 20px rgba(37, 211, 102, 0.4);
+    background-color: #20ba5a;
+  }
+}
+
+/* Mobile Adjustments */
+@media (max-width: 768px) {
+  .whatsapp-wrapper {
+    bottom: 20px;
+    right: 20px;
+  }
+
+  .whatsapp-icon-container {
+    width: 54px;
+    height: 54px;
+  }
+
+  .whatsapp-tooltip {
+    padding: 8px 16px;
+    font-size: 13px;
+    /* On mobile, we keep it visible or rely on the icon */
+    display: none; /* Often cleaner to just have the icon on small screens */
+  }
+}
+
+/* Animation to catch attention */
+@keyframes pulse-whatsapp {
+  0% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.4); }
+  70% { box-shadow: 0 0 0 15px rgba(37, 211, 102, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0); }
+}
+
+.whatsapp-icon-container {
+  animation: pulse-whatsapp 2s infinite;
+}

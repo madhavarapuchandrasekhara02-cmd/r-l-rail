@@ -1,0 +1,28 @@
+<svg width="52" height="52" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Old School Rituals — Bold Engraved Jaali Pattern -->
+  
+  <!-- Substantial offset highlights for deep engraving -->
+  <path d="M26.5 4.5L48.5 26.5L26.5 48.5L4.5 26.5L26.5 4.5Z" stroke="#FFFFFF" stroke-width="0.6" opacity="0.15"/>
+  <path d="M26 4L48 26L26 48L4 26L26 4Z" stroke="#1A140E" stroke-width="1.2" opacity="0.9"/>
+  
+  <!-- Interlocking Diagonal Weave (Bolder) -->
+  <path d="M0.5 0.5L52.5 52.5M52.5 0.5L0.5 52.5" stroke="#FFFFFF" stroke-width="0.4" opacity="0.12"/>
+  <path d="M0 0L52 52M52 0L0 52" stroke="#1A140E" stroke-width="0.8" opacity="0.7"/>
+  
+  <!-- Central Mandala Detail (High Contrast) -->
+  <circle cx="26.5" cy="26.5" r="5" fill="#FFFFFF" opacity="0.12"/>
+  <circle cx="26" cy="26" r="5" fill="#6B5234" opacity="0.9"/>
+  <circle cx="26" cy="26" r="9.5" stroke="#1A140E" stroke-width="0.6" opacity="0.6"/>
+  
+  <!-- Corner Connections (Thicker) -->
+  <path d="M0 16C8 16 12 12 12 0" stroke="#1A140E" stroke-width="1.0" opacity="0.6"/>
+  <path d="M52 16C44 16 40 12 40 0" stroke="#1A140E" stroke-width="1.0" opacity="0.6"/>
+  <path d="M0 36C8 36 12 40 12 52" stroke="#1A140E" stroke-width="1.0" opacity="0.6"/>
+  <path d="M52 36C44 36 40 40 40 52" stroke="#1A140E" stroke-width="1.0" opacity="0.6"/>
+  
+  <!-- Precision Accents (Bold Bronze) -->
+  <circle cx="26" cy="11" r="1.8" fill="#6B5234" opacity="0.8"/>
+  <circle cx="26" cy="41" r="1.8" fill="#6B5234" opacity="0.8"/>
+  <circle cx="11" cy="26" r="1.8" fill="#6B5234" opacity="0.8"/>
+  <circle cx="41" cy="26" r="1.8" fill="#6B5234" opacity="0.8"/>
+</svg>
