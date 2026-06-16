@@ -12,6 +12,16 @@ export const orderRouter = createRouter({
         const cleanQuery = input.query.trim()
         if (!cleanQuery) throw new Error('Search query is empty')
 
+        // Normalize Order ID: handles "ral1", "ral-1", "RaL 1", "RAL_1" -> "RAL-1"
+        // This allows extremely fast exact-match (.eq) lookups instead of slow .ilike scans.
+        let normalizedOrderNumber = cleanQuery;
+        const orderMatch = cleanQuery.match(/^RAL[\s\-_]*(\d+)$/i);
+        if (orderMatch) {
+          normalizedOrderNumber = `RAL-${orderMatch[1]}`;
+        } else {
+          normalizedOrderNumber = cleanQuery.toUpperCase();
+        }
+
         const digitsOnly = cleanQuery.replace(/\D/g, '')
         let phone10 = digitsOnly
         if (digitsOnly.length === 12 && digitsOnly.startsWith('91')) {
@@ -21,15 +31,10 @@ export const orderRouter = createRouter({
         }
 
         const lookupFilters = [
+          `order_number.eq.${normalizedOrderNumber}`,
           `order_number.eq.${cleanQuery}`,
-          `order_number.ilike.${cleanQuery}`, // Case-insensitive exact match
           `customer_phone.eq.${cleanQuery}`
         ]
-
-        if (digitsOnly.length > 0 && digitsOnly.length < 8) {
-          // Allow finding orders if user just types "1", "ral 1", "ral-1", "RAL1"
-          lookupFilters.push(`order_number.eq.RAL/${digitsOnly}`)
-        }
 
         if (phone10.length === 10) {
           lookupFilters.push(
