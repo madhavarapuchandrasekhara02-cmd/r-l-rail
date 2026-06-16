@@ -1,11 +1,13 @@
 import { z } from 'zod'
-import { createRouter, publicQuery } from '../middleware'
+import { createRouter, publicQuery } from '../trpc-middleware'
 import { supabaseAdmin } from '../lib/supabase-admin'
 import crypto from 'crypto'
 
+import { env } from '../../src/lib/env'
+
 // Razorpay Config
-const RAZORPAY_KEY_ID = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || ''
-const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || ''
+const RAZORPAY_KEY_ID = env.NEXT_PUBLIC_RAZORPAY_KEY_ID
+const RAZORPAY_KEY_SECRET = env.RAZORPAY_KEY_SECRET
 
 async function createRazorpayOrder(amount: number, receiptId: string) {
   const auth = Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString('base64')
@@ -106,6 +108,7 @@ export const paymentRouter = createRouter({
           razorpayOrderId: order.id,
           amount: order.amount,
           currency: order.currency,
+          key: RAZORPAY_KEY_ID,
         }
       } catch (error: any) {
         console.error('Razorpay initiation error:', error)

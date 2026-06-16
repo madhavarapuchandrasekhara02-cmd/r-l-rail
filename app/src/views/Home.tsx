@@ -9,7 +9,8 @@ import Autoplay from 'embla-carousel-autoplay'
 import { supabase, type Product, type ProductVariant } from '@/lib/supabase'
 import ProductCard from '@/components/ProductCard'
 import SectionDivider from '@/components/SectionDivider'
-import RitualStories from '@/components/RitualStories'
+import dynamic from 'next/dynamic'
+const RitualStories = dynamic(() => import('@/components/RitualStories'), { ssr: false })
 import PageWrapper from '@/components/PageWrapper'
 
 const luxuryEase = [0.22, 1, 0.36, 1] as const
@@ -90,6 +91,7 @@ export default function Home() {
         const { data: products, error } = await supabase
           .from('products')
           .select(`*, product_variants(*)`)
+          .order('display_order', { ascending: true, nullsFirst: false })
           .order('created_at', { ascending: false })
           .limit(8)
         if (error) { console.error('Supabase error:', error); setLoading(false); return }

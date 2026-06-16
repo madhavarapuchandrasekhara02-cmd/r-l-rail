@@ -1,10 +1,12 @@
 import { z } from 'zod'
-import { createRouter, publicQuery } from '../middleware'
+import { createRouter, publicQuery } from '../trpc-middleware'
+
+import { env } from '../../src/lib/env'
 
 // Delhivery config
-const DELHIVERY_API_TOKEN = process.env.DELHIVERY_API_TOKEN || ''
-const DELHIVERY_BASE = process.env.DELHIVERY_BASE_URL || 'https://track.delhivery.com'
-const DELHIVERY_ORIGIN_PINCODE = process.env.DELHIVERY_ORIGIN_PINCODE || '530026'
+const DELHIVERY_API_TOKEN = env.DELHIVERY_API_TOKEN
+const DELHIVERY_BASE = env.DELHIVERY_BASE_URL
+const DELHIVERY_ORIGIN_PINCODE = env.DELHIVERY_ORIGIN_PINCODE
 
 export const shippingRouter = createRouter({
   checkPincode: publicQuery
@@ -136,7 +138,15 @@ export const shippingRouter = createRouter({
             }
           }
         )
-        const data = await res.json()
+        
+        const responseText = await res.text()
+        let data
+        try {
+          data = JSON.parse(responseText)
+        } catch (e) {
+          console.error('Delhivery tracking API returned invalid JSON:', responseText)
+          throw new Error('Live tracking is temporarily unavailable or returned invalid data.')
+        }
         
         const shipment = data?.ShipmentData?.[0]?.Shipment
         if (!shipment) {

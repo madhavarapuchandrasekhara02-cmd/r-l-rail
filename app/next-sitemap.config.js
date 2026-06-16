@@ -1,4 +1,5 @@
-require("dotenv").config();
+import dotenv from 'dotenv';
+dotenv.config();
 
 /** @type {import('next-sitemap').IConfig} */
 const config = {
@@ -21,8 +22,9 @@ const config = {
   ],
 
   // Custom priorities for key pages
-  additionalPaths: async (config) => [
-    {
+  additionalPaths: async (config) => {
+    const paths = [
+      {
       loc: "/",
       changefreq: "daily",
       priority: 1.0,
@@ -90,15 +92,15 @@ const config = {
       changefreq: "yearly",
       priority: 0.30,
     },
-  ];
+    ];
 
-  // Fetch dynamic products from Supabase
+    // Fetch dynamic products from Supabase
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (supabaseUrl && supabaseAnonKey) {
     try {
-      const { createClient } = require("@supabase/supabase-js");
+      const { createClient } = await import("@supabase/supabase-js");
       const supabase = createClient(supabaseUrl, supabaseAnonKey);
       const { data: products } = await supabase.from("products").select("slug, updated_at");
       

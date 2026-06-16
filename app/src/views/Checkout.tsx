@@ -30,6 +30,7 @@ export default function Checkout() {
   const [loading, setLoading] = useState(false)
   const [orderId, setOrderId] = useState('')
   const [orderNumber, setOrderNumber] = useState('')
+  const [errors, setErrors] = useState<Record<string, boolean>>({})
   const [shippingInfo, setShippingInfo] = useState({
     fullName: '',
     email: '',
@@ -39,6 +40,7 @@ export default function Checkout() {
     state: '',
     zipCode: ''
   })
+  const [browserConfirmed, setBrowserConfirmed] = useState(false)
 
   // tRPC mutations for payment and secure order creation
   const initiateMutation = trpc.payment.initiate.useMutation()
@@ -65,6 +67,8 @@ export default function Checkout() {
     }
   }, [pinCodeQuery.data])
 
+
+
   // Redirect if cart is empty and not on success step
   useEffect(() => {
     if (items.length === 0 && step !== 3) {
@@ -72,20 +76,78 @@ export default function Checkout() {
     }
   }, [items, step])
 
-  const handleNextStep = () => setStep(step + 1)
+  // Auto-scroll to top on success
+  useEffect(() => {
+    if (step === 3) {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }, [step])
+
+  const handleNextStep = () => {
+    const newErrors: Record<string, boolean> = {}
+    if (!shippingInfo.fullName.trim()) newErrors.fullName = true
+    if (!shippingInfo.phone.trim()) newErrors.phone = true
+    if (!shippingInfo.address.trim()) newErrors.address = true
+    if (!shippingInfo.city.trim()) newErrors.city = true
+    if (!shippingInfo.state.trim()) newErrors.state = true
+    if (!shippingInfo.zipCode.trim()) newErrors.zipCode = true
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors)
+      const firstErrorField = Object.keys(newErrors)[0]
+      const element = document.getElementById(firstErrorField)
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        element.focus()
+      }
+      return
+    }
+    
+    setErrors({})
+    setStep(step + 1)
+  }
   const handlePrevStep = () => setStep(step - 1)
+
+  const getInputClass = (field: string) => `w-full h-12 md:h-14 px-4 md:px-6 rounded-2xl bg-[#F0E6D9]/40 border ${errors[field] ? 'border-red-500 focus:border-red-600' : 'border-[#E5C492]/20 focus:border-[#B37943]'} focus:bg-white outline-none transition-all font-sans`;
+  const getTextareaClass = (field: string) => `w-full p-4 md:p-6 rounded-2xl bg-[#F0E6D9]/40 border ${errors[field] ? 'border-red-500 focus:border-red-600' : 'border-[#E5C492]/20 focus:border-[#B37943]'} focus:bg-white outline-none transition-all font-sans resize-none`;
 
   const loadRazorpay = () => {
     return new Promise((resolve) => {
+      // 1. If already loaded by Next.js Script
       if ((window as any).Razorpay) {
         resolve(true)
         return
       }
+
+      // Check if there is already a script with that src to avoid duplicates and race conditions
+      const existingScript = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]')
+      if (existingScript) {
+        let interval = setInterval(() => {
+          if ((window as any).Razorpay) {
+            clearInterval(interval)
+            resolve(true)
+          }
+        }, 100)
+        setTimeout(() => {
+          clearInterval(interval)
+          if ((window as any).Razorpay) {
+            resolve(true)
+          } else {
+            resolve(false)
+          }
+        }, 5000)
+        return
+      }
+
+      // 2. Fallback: Manually inject if not found
       const script = document.createElement('script')
       script.src = 'https://checkout.razorpay.com/v1/checkout.js'
       script.async = true
       script.onload = () => resolve(true)
-      script.onerror = () => resolve(false)
+      script.onerror = () => {
+        console.warn('Razorpay SDK failed to load. Please check your internet connection or disable adblockers.')
+        resolve(false)
+      }
       document.body.appendChild(script)
     })
   }
@@ -110,7 +172,7 @@ export default function Checkout() {
       // 0. Load Razorpay Script
       const isLoaded = await loadRazorpay()
       if (!isLoaded) {
-        alert('Failed to load Razorpay Payment Gateway. Please check your internet connection.')
+        alert('Failed to load Razorpay Payment Gateway. If you are using Brave Browser, an Adblocker, or strict privacy settings, please disable shields/adblocker for this site to complete payment.')
         setLoading(false)
         return
       }
@@ -147,9 +209,9 @@ export default function Checkout() {
         throw new Error(initRes.error || 'Failed to initiate Razorpay order')
       }
 
-      // 3. Open Razorpay Checkout Modal (Exclusively online payment with UPI priority)
+      // 3. Open Razorpay Checkout Modal
       const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_placeholder',
+        key: initRes.key || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_placeholder',
         amount: initRes.amount,
         currency: initRes.currency,
         name: 'Roots & Leaves',
@@ -172,11 +234,19 @@ export default function Checkout() {
               setStep(3)
               clearCart()
             } else {
-              alert(verifyRes.error || 'HMAC Signature verification failed. Payment was captured but is pending review.')
+              alert('We received your payment, but confirmation is delayed. Don\'t worry, your order is safe and you will receive an update shortly!')
+              setOrderId(createRes.orderId)
+              setOrderNumber(createRes.orderNumber || '')
+              setStep(3)
+              clearCart()
             }
           } catch (err: any) {
             console.error('Verification error:', err)
-            alert('An error occurred during verification. Your payment status will be updated via webhook shortly.')
+            alert('Network delay detected. We have received your payment and our system will confirm your order in the background. Please check your email shortly!')
+            setOrderId(createRes.orderId)
+            setOrderNumber(createRes.orderNumber || '')
+            setStep(3)
+            clearCart()
           } finally {
             setLoading(false)
           }
@@ -184,27 +254,7 @@ export default function Checkout() {
         prefill: {
           name: shippingInfo.fullName,
           email: shippingInfo.email,
-          contact: shippingInfo.phone,
-          method: 'upi' // Focus and prioritize UPI in checkout window
-        },
-        config: {
-          display: {
-            blocks: {
-              upi: {
-                name: 'Pay securely via UPI (QR Code & Apps)',
-                instruments: [
-                  {
-                    method: 'upi',
-                    flows: ['qr', 'intent'] // Direct QR Code and Intent Apps at the top
-                  }
-                ]
-              }
-            },
-            sequence: ['block.upi', 'block.other'], // Place UPI at the top of the payment options sequence
-            preferences: {
-              show_default_blocks: true
-            }
-          }
+          contact: normalizedPhone,
         },
         theme: {
           color: '#B37943'
@@ -226,18 +276,37 @@ export default function Checkout() {
     }
   }
 
+  useEffect(() => {
+    if (step === 3) {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }, [step])
+
   if (step === 3) {
     return (
       <PageWrapper>
         <section className="py-20">
           <div className="max-w-2xl mx-auto px-4 sm:px-6 text-center">
-            <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-8">
-              <CheckCircle2 className="w-12 h-12 text-green-600" />
+            <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="w-24 h-24 bg-[#FAF3E8] border border-[#E5C492]/40 rounded-full flex items-center justify-center mx-auto mb-8 shadow-inner">
+              <CheckCircle2 className="w-12 h-12 text-[#B37943]" />
             </motion.div>
-            <h1 className="text-4xl text-[#4A3525] font-serif mb-6">Ritual Initialized</h1>
-            <p className="text-[#8B7355] text-lg mb-10 font-sans">
-              Thank you for choosing Roots & Leaves. Your order <strong>#{orderNumber}</strong> has been placed successfully and is being formulated with care.
+            <h1 className="text-3xl md:text-4xl text-[#4A3525] font-serif mb-6">Ritual Initialized</h1>
+            <p className="text-[#8B7355] text-base md:text-lg mb-8 font-sans">
+              Thank you for choosing Roots & Leaves. Your sacred formulation is being prepared with care.
             </p>
+            <motion.div 
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.2, duration: 0.8 }}
+              className="bg-gradient-to-br from-[#FAF9F6] via-[#FDFBF7] to-[#F0E6D9] border-2 border-[#E5C492] rounded-[32px] p-8 mb-10 inline-block w-full max-w-sm mx-auto shadow-[0_20px_40px_rgba(179,121,67,0.15)] relative overflow-hidden group"
+            >
+              <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-[#B37943] via-[#E5C492] to-[#B37943] opacity-70"></div>
+              <div className="absolute -inset-1 bg-gradient-to-r from-[#E5C492]/0 via-[#E5C492]/20 to-[#E5C492]/0 opacity-0 group-hover:opacity-100 blur-xl transition-opacity duration-1000"></div>
+              <p className="text-[10px] md:text-xs text-[#B37943] uppercase tracking-[0.4em] font-bold mb-3 relative z-10">Order ID</p>
+              <div className="flex items-center justify-center relative z-10">
+                <span className="text-4xl md:text-5xl text-[#4A3525] font-serif tracking-widest drop-shadow-sm select-all">#{orderNumber}</span>
+              </div>
+            </motion.div>
             <div className="space-y-4">
               <Link href="/track" className="block w-full py-4 bg-[#B37943] text-white rounded-full font-bold uppercase tracking-widest text-sm hover:bg-[#96612F] shadow-lg transition-all">
                 Track My Ritual
@@ -258,8 +327,8 @@ export default function Checkout() {
         <section className="py-20">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 text-center">
             <ShoppingBag className="w-16 h-16 text-[#B37943]/20 mx-auto mb-6" />
-            <h1 className="text-3xl text-[#4A3525] font-serif mb-4">Your basket is empty</h1>
-            <p className="text-[#8B7355] mb-8 font-sans">Every journey begins with a single intention.</p>
+            <h1 className="text-2xl md:text-3xl text-[#4A3525] font-serif mb-4">Your basket is empty</h1>
+            <p className="text-[#8B7355] text-sm md:text-base mb-8 font-sans">Every journey begins with a single intention.</p>
             <Link href="/shop" className="btn-ritual-primary px-12">
               Explore Rituals
             </Link>
@@ -271,7 +340,7 @@ export default function Checkout() {
 
   return (
     <PageWrapper>
-      <section className="py-12 md:py-20">
+      <section className="py-12 md:py-20 w-full">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           {/* Progress Header */}
           <div className="flex items-center justify-center mb-12 md:mb-20">
@@ -280,7 +349,7 @@ export default function Checkout() {
                 <span className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold ${step >= 1 ? 'border-[#B37943] bg-[#B37943]/10' : 'border-[#8B7355]/30'}`}>1</span>
                 <span className="text-xs uppercase tracking-[0.2em] font-bold hidden md:block">Shipping</span>
               </div>
-              <div className="w-12 h-px bg-[#E5C492]/30" />
+              <div className="w-8 sm:w-12 h-px bg-[#E5C492]/30" />
               <div className={`flex items-center gap-2 ${step >= 2 ? 'text-[#B37943]' : 'text-[#8B7355] opacity-40'}`}>
                 <span className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold ${step >= 2 ? 'border-[#B37943] bg-[#B37943]/10' : 'border-[#8B7355]/30'}`}>2</span>
                 <span className="text-xs uppercase tracking-[0.2em] font-bold hidden md:block">Review & Payment</span>
@@ -293,39 +362,39 @@ export default function Checkout() {
             <div className="lg:col-span-7 space-y-8">
               <AnimatePresence mode="wait">
                 {step === 1 ? (
-                  <motion.div key="shipping" {...fadeUp} className="space-y-8">
-                    <div className="bg-white/60 backdrop-blur-md p-8 md:p-12 rounded-[40px] border border-[#E5C492]/20 shadow-xl">
-                      <div className="flex items-center gap-3 mb-8">
-                        <MapPin className="w-6 h-6 text-[#B37943]" />
-                        <h2 className="text-2xl text-[#4A3525] font-serif">Shipping Sanctuary</h2>
+                  <motion.div key="shipping" {...fadeUp} onAnimationComplete={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="space-y-6 sm:space-y-8">
+                    <div className="bg-white/60 backdrop-blur-md p-4 sm:p-8 md:p-12 rounded-[20px] sm:rounded-[28px] md:rounded-[40px] border border-[#E5C492]/20 shadow-xl">
+                      <div className="flex items-center gap-2 sm:gap-3 mb-6 sm:mb-8">
+                        <MapPin className="w-5 h-5 sm:w-6 sm:h-6 text-[#B37943]" />
+                        <h2 className="text-xl sm:text-2xl text-[#4A3525] font-serif">Shipping Sanctuary</h2>
                       </div>
                       
-                      <div className="grid md:grid-cols-2 gap-6">
+                      <div className="grid md:grid-cols-2 gap-3 sm:gap-6">
                         <div className="space-y-2">
                           <label className="text-[10px] uppercase tracking-widest font-bold text-[#4A3525] ml-1">Full Name</label>
-                          <input type="text" value={shippingInfo.fullName} onChange={e => setShippingInfo({...shippingInfo, fullName: e.target.value})} className="w-full h-14 px-6 rounded-2xl bg-[#F0E6D9]/40 border border-[#E5C492]/20 focus:border-[#B37943] focus:bg-white outline-none transition-all font-sans" placeholder="Your name" />
+                          <input id="fullName" type="text" value={shippingInfo.fullName} onChange={e => { setShippingInfo({...shippingInfo, fullName: e.target.value}); setErrors({...errors, fullName: false}) }} className={getInputClass('fullName')} placeholder="Your name" />
                         </div>
                         <div className="space-y-2">
-                          <label className="text-[10px] uppercase tracking-widest font-bold text-[#4A3525] ml-1">Email Address</label>
-                          <input type="email" value={shippingInfo.email} onChange={e => setShippingInfo({...shippingInfo, email: e.target.value})} className="w-full h-14 px-6 rounded-2xl bg-[#F0E6D9]/40 border border-[#E5C492]/20 focus:border-[#B37943] focus:bg-white outline-none transition-all font-sans" placeholder="hello@example.com" />
+                          <label className="text-[10px] uppercase tracking-widest font-bold text-[#4A3525] ml-1">Email Address <span className="lowercase text-gray-500 font-normal tracking-normal">(Optional)</span></label>
+                          <input type="email" value={shippingInfo.email} onChange={e => setShippingInfo({...shippingInfo, email: e.target.value})} className={getInputClass('email')} placeholder="hello@example.com" />
                         </div>
                         <div className="space-y-2">
                           <label className="text-[10px] uppercase tracking-widest font-bold text-[#4A3525] ml-1">Phone Number</label>
-                          <input type="tel" value={shippingInfo.phone} onChange={e => setShippingInfo({...shippingInfo, phone: e.target.value})} className="w-full h-14 px-6 rounded-2xl bg-[#F0E6D9]/40 border border-[#E5C492]/20 focus:border-[#B37943] focus:bg-white outline-none transition-all font-sans" placeholder="+91" />
+                          <input id="phone" type="tel" value={shippingInfo.phone} onChange={e => { setShippingInfo({...shippingInfo, phone: e.target.value}); setErrors({...errors, phone: false}) }} className={getInputClass('phone')} placeholder="+91" />
                         </div>
                         <div className="space-y-2">
                           <label className="text-[10px] uppercase tracking-widest font-bold text-[#4A3525] ml-1">City</label>
-                          <input type="text" value={shippingInfo.city} onChange={e => setShippingInfo({...shippingInfo, city: e.target.value})} className="w-full h-14 px-6 rounded-2xl bg-[#F0E6D9]/40 border border-[#E5C492]/20 focus:border-[#B37943] focus:bg-white outline-none transition-all font-sans" placeholder="Bhopal" />
+                          <input id="city" type="text" value={shippingInfo.city} onChange={e => { setShippingInfo({...shippingInfo, city: e.target.value}); setErrors({...errors, city: false}) }} className={getInputClass('city')} placeholder="Bhopal" />
                         </div>
                       </div>
-                      <div className="mt-6 space-y-2">
+                      <div className="mt-3 sm:mt-6 space-y-2">
                         <label className="text-[10px] uppercase tracking-widest font-bold text-[#4A3525] ml-1">Shipping Address</label>
-                        <textarea rows={3} value={shippingInfo.address} onChange={e => setShippingInfo({...shippingInfo, address: e.target.value})} className="w-full p-6 rounded-2xl bg-[#F0E6D9]/40 border border-[#E5C492]/20 focus:border-[#B37943] focus:bg-white outline-none transition-all font-sans resize-none" placeholder="House/Flat No, Street, Landmark..." />
+                        <textarea id="address" rows={3} value={shippingInfo.address} onChange={e => { setShippingInfo({...shippingInfo, address: e.target.value}); setErrors({...errors, address: false}) }} className={getTextareaClass('address')} placeholder="House/Flat No, Street, Landmark..." />
                       </div>
-                      <div className="mt-6 grid md:grid-cols-2 gap-6">
+                      <div className="mt-3 sm:mt-6 grid md:grid-cols-2 gap-3 sm:gap-6">
                         <div className="space-y-2">
                           <label className="text-[10px] uppercase tracking-widest font-bold text-[#4A3525] ml-1">State</label>
-                          <select value={shippingInfo.state} onChange={e => setShippingInfo({...shippingInfo, state: e.target.value})} className="w-full h-14 px-6 rounded-2xl bg-[#F0E6D9]/40 border border-[#E5C492]/20 focus:border-[#B37943] focus:bg-white outline-none transition-all font-sans cursor-pointer">
+                          <select id="state" value={shippingInfo.state} onChange={e => { setShippingInfo({...shippingInfo, state: e.target.value}); setErrors({...errors, state: false}) }} className={getInputClass('state')}>
                             <option value="" disabled>Select your state</option>
                             {INDIAN_STATES.map(st => (
                               <option key={st} value={st}>{st}</option>
@@ -334,70 +403,121 @@ export default function Checkout() {
                         </div>
                         <div className="space-y-2">
                           <label className="text-[10px] uppercase tracking-widest font-bold text-[#4A3525] ml-1">Pincode</label>
-                          <input type="text" value={shippingInfo.zipCode} onChange={e => setShippingInfo({...shippingInfo, zipCode: e.target.value})} className="w-full h-14 px-6 rounded-2xl bg-[#F0E6D9]/40 border border-[#E5C492]/20 focus:border-[#B37943] focus:bg-white outline-none transition-all font-sans" placeholder="462001" />
+                          <input id="zipCode" type="text" value={shippingInfo.zipCode} onChange={e => { setShippingInfo({...shippingInfo, zipCode: e.target.value}); setErrors({...errors, zipCode: false}) }} className={getInputClass('zipCode')} placeholder="462001" />
                         </div>
                       </div>
                     </div>
 
                     <button 
                       onClick={handleNextStep}
-                      disabled={!shippingInfo.fullName || !shippingInfo.address || !shippingInfo.phone || !shippingInfo.zipCode || !shippingInfo.city}
-                      className="w-full h-16 bg-[#B37943] text-white rounded-full font-bold uppercase tracking-[0.2em] text-sm hover:bg-[#96612F] shadow-lg hover:shadow-xl transition-all hover:-translate-y-0.5 active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-50"
+                      className="w-full h-14 md:h-16 bg-[#B37943] text-white rounded-full font-bold uppercase tracking-[0.1em] md:tracking-[0.2em] text-[11px] sm:text-xs md:text-sm hover:bg-[#96612F] shadow-[0_4px_14px_rgba(179,121,67,0.4)] hover:shadow-[0_6px_20px_rgba(179,121,67,0.6)] transition-all duration-300 hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50 cursor-pointer"
                     >
                       Continue to Review
                       <ArrowRight className="w-4 h-4" />
                     </button>
                   </motion.div>
                 ) : (
-                  <motion.div key="payment" {...fadeUp} className="space-y-8">
-                    <div className="bg-white/60 backdrop-blur-md p-8 md:p-12 rounded-[40px] border border-[#E5C492]/20 shadow-xl">
-                      <div className="flex items-center gap-3 mb-8">
-                        <CreditCard className="w-6 h-6 text-[#B37943]" />
-                        <h2 className="text-2xl text-[#4A3525] font-serif">Review & Payment</h2>
+                  <motion.div key="payment" {...fadeUp} onAnimationComplete={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="space-y-6 sm:space-y-8">
+                    <div className="bg-[#FAF8F5]/90 backdrop-blur-xl p-6 sm:p-8 md:p-12 rounded-[24px] sm:rounded-[32px] md:rounded-[40px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-[#E5C492]/30 relative overflow-hidden">
+                      {/* Decorative elements */}
+                      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#D4AF37]/40 to-transparent"></div>
+                      
+                      <div className="text-center mb-8 sm:mb-10">
+                        <div className="inline-flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#B37943]/10 text-[#B37943] mb-4 sm:mb-5">
+                          <CheckCircle2 className="w-6 h-6 sm:w-7 sm:h-7" />
+                        </div>
+                        <h2 className="text-2xl sm:text-3xl md:text-4xl text-[#4A3525] font-serif tracking-wide">Review & Payment</h2>
+                        <p className="text-xs sm:text-sm text-[#8B7355] mt-2 sm:mt-3 font-medium">Almost there. Please review your details.</p>
                       </div>
                       
-                      <div className="space-y-6">
-                        <div className="p-6 rounded-2xl bg-[#F3E9D7]/40 border border-[#E5C492]/20">
-                          <div className="flex justify-between items-start mb-4">
-                            <h3 className="text-sm font-bold uppercase tracking-widest text-[#4A3525]">Shipping to</h3>
-                            <button onClick={handlePrevStep} className="text-xs text-[#B37943] hover:underline">Change</button>
+                      <div className="space-y-8">
+                        {/* Section 1: Shipping Details */}
+                        <div className="relative">
+                          <div className="flex justify-between items-baseline mb-3 sm:mb-4">
+                            <h3 className="text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.2em] text-[#8B7355]">Shipping Details</h3>
+                            <button onClick={handlePrevStep} className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-[#B37943] hover:text-[#4A3525] transition-colors flex items-center gap-1 group">
+                              Edit <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                            </button>
                           </div>
-                          <p className="text-sm text-[#8B7355] leading-relaxed font-sans">
-                            {shippingInfo.fullName}<br />
-                            {shippingInfo.address}, {shippingInfo.city}, {shippingInfo.state} - {shippingInfo.zipCode}
-                          </p>
+                          <div className="pb-6 sm:pb-8 border-b border-[#E5C492]/30">
+                            <p className="text-lg sm:text-xl text-[#4A3525] font-serif font-medium mb-1 sm:mb-2">
+                              {shippingInfo.fullName}
+                            </p>
+                            <p className="text-sm sm:text-[15px] text-[#6B5A4A] leading-relaxed font-sans max-w-[90%]">
+                              {shippingInfo.address}, <br/>
+                              {shippingInfo.city}, {shippingInfo.state} - {shippingInfo.zipCode}
+                            </p>
+                          </div>
                         </div>
 
-                        <div className="p-6 rounded-2xl bg-[#F3E9D7]/40 border border-[#E5C492]/20">
-                           <h3 className="text-sm font-bold uppercase tracking-widest text-[#4A3525] mb-4">Secure Payment Method</h3>
-                           <div className="flex items-center gap-4 p-4 rounded-xl border-2 border-[#B37943] bg-white">
-                              <div className="w-10 h-10 rounded-full bg-[#B37943]/10 flex items-center justify-center">
-                                <CreditCard className="w-5 h-5 text-[#B37943]" />
+                        {/* Section 2: Minimalist Order Summary */}
+                        <div className="relative">
+                          <h3 className="text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.2em] text-[#8B7355] mb-4 sm:mb-5">Order Summary</h3>
+                          <div className="pb-6 sm:pb-8 border-b border-[#E5C492]/30 space-y-3 sm:space-y-4">
+                            <div className="flex justify-between text-sm sm:text-[15px] text-[#6B5A4A]">
+                              <span>Subtotal</span>
+                              <span className="font-medium text-[#4A3525]">₹{getTotal()}</span>
+                            </div>
+                            <div className="flex justify-between text-sm sm:text-[15px] text-[#6B5A4A]">
+                              <span>Shipping</span>
+                              <span className="font-medium text-[#B37943] uppercase tracking-wider text-xs flex items-center">Free</span>
+                            </div>
+                            <div className="pt-3 sm:pt-4 flex justify-between text-lg sm:text-xl font-serif">
+                              <span className="text-[#4A3525]">Total to Pay</span>
+                              <span className="font-bold text-[#4A3525]">₹{getTotal()}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Section 3: Payment Method */}
+                        <div className="relative">
+                           <h3 className="text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.2em] text-[#8B7355] mb-4 sm:mb-5">Secure Payment</h3>
+                           
+                           {/* Luxury Razorpay Card */}
+                           <div className="relative overflow-hidden p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-white to-[#FAF8F5] border border-[#E5C492]/40 shadow-[0_4px_20px_rgb(0,0,0,0.02)] transition-all">
+                              <div className="flex items-center gap-4 sm:gap-5 relative z-10">
+                                <div className="w-12 h-12 sm:w-14 sm:h-14 shrink-0 rounded-full bg-blue-50/50 flex items-center justify-center border border-blue-100 shadow-inner">
+                                  <ShieldCheck className="w-6 h-6 sm:w-7 sm:h-7 text-[#1A56DB]" />
+                                </div>
+                                <div className="flex-1">
+                                  <p className="text-[15px] sm:text-lg font-bold text-[#4A3525] font-serif">Razorpay Secure</p>
+                                  <p className="text-xs sm:text-sm text-[#8B7355] mt-0.5 sm:mt-1">UPI / Cards / NetBanking</p>
+                                </div>
+                                <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-[#1A56DB] flex items-center justify-center shadow-[0_0_10px_rgba(26,86,219,0.3)]">
+                                  <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-white"></div>
+                                </div>
                               </div>
-                              <div>
-                                <p className="text-sm font-bold text-[#4A3525]">Razorpay Secure Checkout</p>
-                                <p className="text-xs text-[#8B7355]">Instant & Secure UPI / Card payments</p>
-                              </div>
-                              <CheckCircle2 className="w-5 h-5 text-[#B37943] ml-auto" />
                            </div>
-                           <p className="mt-4 text-[10px] text-[#8B7355] italic">
-                             * All payments are securely encrypted using HMAC-SHA256 and processed with high security.
-                           </p>
+
+                           {/* Sleek Browser Checkbox */}
+                           <label className="mt-6 sm:mt-8 flex items-start gap-3 sm:gap-4 cursor-pointer group bg-white/40 sm:bg-white/50 p-4 sm:p-5 rounded-xl border border-[#E5C492]/10 hover:border-[#E5C492]/30 transition-all">
+                             <div className="relative flex items-center justify-center mt-0.5 sm:mt-1 shrink-0">
+                               <input type="checkbox" className="sr-only" checked={browserConfirmed} onChange={(e) => setBrowserConfirmed(e.target.checked)} />
+                               <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded border-2 transition-all duration-300 flex items-center justify-center ${browserConfirmed ? 'bg-[#4A3525] border-[#4A3525] shadow-[0_0_12px_rgba(74,53,37,0.3)]' : 'border-[#4A3525]/30'}`}>
+                                 <CheckCircle2 className={`w-3.5 h-3.5 sm:w-4 sm:h-4 text-white transition-opacity duration-200 ${browserConfirmed ? 'opacity-100' : 'opacity-0'}`} />
+                               </div>
+                             </div>
+                             <p className="text-[11px] sm:text-[13px] text-[#6B5A4A] font-medium leading-relaxed select-none">
+                               I confirm that I am using <strong className="text-[#4A3525] font-bold">Chrome or Safari</strong> for payment, rather than the Instagram or Facebook browser.
+                             </p>
+                           </label>
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex gap-4">
-                      <button onClick={handlePrevStep} className="w-16 h-16 rounded-full border-2 border-[#E5C492]/30 flex items-center justify-center text-[#4A3525] hover:bg-[#B37943]/5 transition-all">
-                        <ArrowLeft className="w-5 h-5" />
+                    {/* Action Bar */}
+                    <div className="flex gap-3 sm:gap-4 pt-2 sm:pt-4">
+                      <button onClick={handlePrevStep} className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-white border border-[#E5C492]/30 flex items-center justify-center text-[#4A3525] hover:bg-[#FAF8F5] shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-1 active:scale-95 shrink-0 cursor-pointer">
+                        <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6" />
                       </button>
+                      
                       <button 
                         onClick={placeOrder}
-                        disabled={loading}
-                        className="flex-1 h-16 bg-[#B37943] text-white rounded-full font-bold uppercase tracking-[0.2em] text-sm hover:bg-[#96612F] shadow-lg hover:shadow-xl transition-all hover:-translate-y-0.5 active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-50"
+                        disabled={loading || !browserConfirmed}
+                        className="flex-1 h-14 sm:h-16 bg-[#2A1F16] text-[#FAF8F5] rounded-full font-bold uppercase tracking-widest sm:tracking-[0.2em] text-[11px] sm:text-xs md:text-sm hover:bg-[#1A130E] shadow-[0_4px_20px_rgba(42,31,22,0.4)] hover:shadow-[0_8px_25px_rgba(42,31,22,0.6)] transition-all duration-300 hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-2 sm:gap-3 disabled:opacity-50 cursor-pointer"
                       >
-                        {loading ? 'Initializing Secure Payment...' : `Place Order & Pay - ₹${getTotal()}`}
-                        <ShieldCheck className="w-4 h-4" />
+                        {loading ? 'Initializing Payment...' : `Complete Order • ₹${getTotal()}`}
+                        <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5 text-[#E5C492]" />
                       </button>
                     </div>
                   </motion.div>
@@ -406,9 +526,9 @@ export default function Checkout() {
             </div>
 
             {/* Order Summary Sidebar */}
-            <div className="lg:col-span-5">
-              <div className="bg-white/40 backdrop-blur-md p-8 rounded-[40px] border border-[#E5C492]/20 shadow-lg sticky top-24">
-                <h3 className="text-xl text-[#4A3525] font-serif mb-8 pb-4 border-b border-[#EADCC8]">The Basket</h3>
+            <div className={`${step === 1 ? 'block' : 'hidden'} lg:block lg:col-span-5`}>
+              <div className="bg-white/40 backdrop-blur-md p-5 sm:p-8 rounded-[28px] md:rounded-[40px] border border-[#E5C492]/20 shadow-lg sticky top-24">
+                <h3 className="text-xl text-[#4A3525] font-serif mb-6 sm:mb-8 pb-4 border-b border-[#EADCC8]">The Basket</h3>
                 
                 <div className="space-y-6 max-h-[400px] overflow-y-auto no-scrollbar mb-8 pr-2">
                   {items.map((item) => (
@@ -418,17 +538,17 @@ export default function Checkout() {
                       </div>
                       <div className="flex-1 min-w-0 flex flex-col justify-between py-1">
                         <div>
-                          <h4 className="text-sm font-bold text-[#4A3525] truncate font-serif">{item.name}</h4>
-                          <p className="text-[10px] text-[#B37943] uppercase tracking-widest font-semibold mt-1">{item.variantLabel}</p>
+                          <h4 className="text-[13px] sm:text-sm font-bold text-[#4A3525] truncate font-serif">{item.name}</h4>
+                          <p className="text-[9px] sm:text-[10px] text-[#B37943] uppercase tracking-widest font-semibold mt-1 truncate">{item.variantLabel}</p>
                         </div>
                         <div className="flex items-center justify-between mt-2">
-                          <div className="flex items-center gap-3 scale-90 origin-left">
-                             <button onClick={() => updateQuantity(item.variantId, Math.max(1, item.quantity - 1))} className="text-[#8B7355] hover:text-[#B37943]"><Minus className="w-3 h-3" /></button>
-                             <span className="text-xs font-bold text-[#4A3525] w-4 text-center">{item.quantity}</span>
-                             <button onClick={() => updateQuantity(item.variantId, item.quantity + 1)} className="text-[#8B7355] hover:text-[#B37943]"><Plus className="w-3 h-3" /></button>
-                             <button onClick={() => removeItem(item.variantId)} className="ml-2 text-[#8B7355] hover:text-red-500"><Trash2 className="w-3 h-3" /></button>
+                          <div className="flex items-center gap-2 sm:gap-3">
+                             <button onClick={() => updateQuantity(item.variantId, Math.max(1, item.quantity - 1))} className="text-[#8B7355] hover:text-[#B37943] p-1 -ml-1"><Minus className="w-3 h-3" /></button>
+                             <span className="text-xs font-bold text-[#4A3525] w-3 sm:w-4 text-center">{item.quantity}</span>
+                             <button onClick={() => updateQuantity(item.variantId, item.quantity + 1)} className="text-[#8B7355] hover:text-[#B37943] p-1"><Plus className="w-3 h-3" /></button>
+                             <button onClick={() => removeItem(item.variantId)} className="ml-1 sm:ml-2 text-[#8B7355] hover:text-red-500 p-1"><Trash2 className="w-3 h-3" /></button>
                           </div>
-                          <span className="text-sm font-bold text-[#4A3525] font-sans">₹{item.price * item.quantity}</span>
+                          <span className="text-[13px] sm:text-sm font-bold text-[#4A3525] font-sans ml-1">₹{item.price * item.quantity}</span>
                         </div>
                       </div>
                     </div>

@@ -1,5 +1,5 @@
 import { drizzle } from "drizzle-orm/mysql2";
-import { env } from "../lib/env";
+import { env } from "../../src/lib/env";
 import * as schema from "@db/schema";
 import * as relations from "@db/relations";
 
@@ -9,7 +9,7 @@ let instance: ReturnType<typeof drizzle<typeof fullSchema>>;
 
 export function getDb() {
   if (!instance) {
-    instance = drizzle(env.databaseUrl, {
+    instance = drizzle(env.DATABASE_URL || "", {
       mode: "planetscale",
       schema: fullSchema,
     });

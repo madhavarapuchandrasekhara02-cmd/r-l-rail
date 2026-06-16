@@ -1,7 +1,8 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import Navbar from './Navbar';
-import Footer from './Footer';
+import dynamic from 'next/dynamic';
+const Footer = dynamic(() => import('./Footer'), { ssr: false });
 import CartDrawer from './CartDrawer';
 import OrnamentalBorders from './OrnamentalBorders';
 import { usePathname } from 'next/navigation';

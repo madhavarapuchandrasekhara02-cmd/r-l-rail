@@ -15,6 +15,7 @@ export type Product = {
   rating: number | null
   category: string
   images: string[] | null
+  display_order: number
   created_at: string
 }
 
@@ -39,7 +40,7 @@ export type Order = {
   state: string
   pincode: string
   landmark: string | null
-  status: 'Pending' | 'Processing' | 'Paid' | 'Shipped' | 'Delivered' | 'Cancelled'
+  status: 'Pending' | 'Processing' | 'Paid' | 'Packed' | 'Shipped' | 'Delivered' | 'Cancelled'
   total: number
   delivery_charge: number
   payment_method: string

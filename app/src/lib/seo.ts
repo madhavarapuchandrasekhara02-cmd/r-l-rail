@@ -30,7 +30,7 @@ export const BRAND = {
     whatsapp: "https://wa.me/916301204845",
   },
   description:
-    "South India's premium herbal hair wellness brand. 100% natural, handcrafted Ayurvedic rituals rooted in ancient Indian wisdom — trusted across Andhra Pradesh, Telangana, Karnataka & Tamil Nadu.",
+    "Experience the epitome of pure, luxurious Ayurvedic wellness. Roots & Leaves offers handcrafted, 100% natural hair and face care rituals. Discover the ancient secrets of true beauty.",
   keywords: [
     // Core product keywords
     "herbal hair oil",
@@ -245,6 +245,51 @@ export function buildWebSiteSchema() {
       },
       "query-input": "required name=search_term_string",
     },
+  };
+}
+
+/** SiteNavigationElement schema — encourages sitelinks in search results */
+export function buildSiteNavigationSchema() {
+  return {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    "itemListElement": [
+      {
+        "@type": "SiteNavigationElement",
+        "position": 1,
+        "name": "Hair Care",
+        "description": "Premium, all-natural hair care rituals for ultimate nourishment.",
+        "url": `${BRAND.url}/shop?category=hair-rituals`
+      },
+      {
+        "@type": "SiteNavigationElement",
+        "position": 2,
+        "name": "Face Care",
+        "description": "Luxurious Ayurvedic face care for a radiant, youthful glow.",
+        "url": `${BRAND.url}/shop?category=face-rituals`
+      },
+      {
+        "@type": "SiteNavigationElement",
+        "position": 3,
+        "name": "All Products",
+        "description": "Explore our complete collection of exquisite botanical formulations.",
+        "url": `${BRAND.url}/shop`
+      },
+      {
+        "@type": "SiteNavigationElement",
+        "position": 4,
+        "name": "About Us",
+        "description": "Discover the heritage, purity, and passion behind Roots & Leaves.",
+        "url": `${BRAND.url}/about`
+      },
+      {
+        "@type": "SiteNavigationElement",
+        "position": 5,
+        "name": "Track Your Order",
+        "description": "Easily track the delivery status of your Roots & Leaves order.",
+        "url": `${BRAND.url}/track`
+      }
+    ]
   };
 }
 

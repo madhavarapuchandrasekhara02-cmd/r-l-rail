@@ -5,6 +5,11 @@ import { Instagram, Mail, MessageCircle, MapPin, ChevronDown, Youtube } from 'lu
 
 export default function Footer() {
   const [openSection, setOpenSection] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const toggleSection = (id: string) => {
     setOpenSection(openSection === id ? null : id);
@@ -16,11 +21,10 @@ export default function Footer() {
       title: 'Quick Links',
       links: [
         { label: 'Home', href: '/' },
-        { label: 'Shop All', href: '/shop' },
-        { label: 'Hair Ritual', href: '/hair-rituals' },
-        { label: 'Wellness Ritual', href: '/wellness-rituals' },
-        { label: 'Face Ritual', href: '/face-rituals' },
-        { label: 'Baby Ritual', href: '/baby-rituals' },
+        { label: 'Hair Ritual', href: '/shop?category=hair-rituals' },
+        { label: 'Face Ritual', href: '/shop?category=face-rituals' },
+        { label: 'About Us', href: '/about' },
+        { label: 'Track Your Order', href: '/track' },
       ],
     },
 
@@ -29,12 +33,12 @@ export default function Footer() {
       id: 'company',
       title: 'Our Rituals',
       links: [
-        { label: 'Hair Ritual', href: '/hair-rituals' },
+        { label: 'Hair Ritual', href: '/shop?category=hair-rituals' },
+        { label: 'Face Ritual', href: '/shop?category=face-rituals' },
         { label: 'Wellness Ritual', href: '/wellness-rituals' },
-        { label: 'Face Ritual', href: '/face-rituals' },
         { label: 'Baby Ritual', href: '/baby-rituals' },
         { label: 'About Us', href: '/about' },
-        { label: 'Track Order', href: '/track' },
+        { label: 'Track Your Order', href: '/track' },
       ],
     },
 
@@ -102,7 +106,7 @@ export default function Footer() {
                         rel={link.href.startsWith('http') ? "noopener noreferrer" : undefined}
                         className="footer-link"
                       >
-                        {link.label}
+                        {mounted ? link.label : <span className="opacity-0">{link.label}</span>}
                       </Link>
                     </li>
                   ))}
@@ -136,7 +140,7 @@ export default function Footer() {
                           rel={link.href.startsWith('http') ? "noopener noreferrer" : undefined}
                           className="footer-link text-[12px]"
                         >
-                          {link.label}
+                          {mounted ? link.label : <span className="opacity-0">{link.label}</span>}
                         </Link>
                       </li>
                     ))}

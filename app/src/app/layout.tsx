@@ -1,5 +1,6 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { TRPCProvider } from "@/providers/trpc";
+import Script from "next/script";
 import { Cormorant_Garamond, DM_Sans } from "next/font/google";
 import "@/index.css";
 import WhatsAppButton from "@/components/WhatsAppButton";
@@ -8,6 +9,7 @@ import SchemaOrg from "@/components/SchemaOrg";
 import {
   buildOrganizationSchema,
   buildWebSiteSchema,
+  buildSiteNavigationSchema,
   buildLocalBusinessSchema,
   BRAND,
 } from "@/lib/seo";
@@ -34,15 +36,22 @@ const dmSans = DM_Sans({
 
 // ─── Global Metadata ─────────────────────────────────────────────────────────
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
+
 export const metadata: Metadata = {
   // Default title template — each page overrides {title}
   title: {
     default:
-      "Roots & Leaves — South India's Premium Herbal Hair Wellness Brand",
+      "Roots & Leaves | Luxury Ayurvedic Hair & Skin Care",
     template: "%s | Roots & Leaves",
   },
   description:
-    "South India's most trusted premium herbal hair wellness brand. 100% natural, handcrafted Ayurvedic hair oils, shampoos, conditioners & bath powders rooted in traditional South Indian heritage. Trusted across Andhra Pradesh, Telangana, Karnataka & Tamil Nadu.",
+    "Experience the epitome of pure, luxurious Ayurvedic wellness. Roots & Leaves offers handcrafted, 100% natural hair and face care rituals. Discover the ancient secrets of true beauty.",
   keywords: [
     "Roots and Leaves",
     "Ayushyaa Foods and Naturals",
@@ -111,23 +120,23 @@ export const metadata: Metadata = {
     locale: "en_IN",
     url: BRAND.url,
     siteName: BRAND.name,
-    title: "Roots & Leaves — South India's Premium Herbal Hair Wellness Brand",
+    title: "Roots & Leaves | Luxury Ayurvedic Hair & Skin Care",
     description:
-      "100% natural, handcrafted Ayurvedic hair rituals. Trusted across Andhra Pradesh, Telangana, Karnataka & Tamil Nadu.",
+      "Experience the epitome of pure, luxurious Ayurvedic wellness. Roots & Leaves offers handcrafted, 100% natural hair and face care rituals.",
     images: [
       {
         url: `${BRAND.url}/roots-logo.png`,
         width: 1200,
         height: 630,
-        alt: "Roots & Leaves — Premium Herbal Hair Wellness Brand South India",
+        alt: "Roots & Leaves — Luxury Ayurvedic Hair & Skin Care",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Roots & Leaves — Premium Herbal Hair Wellness Brand",
+    title: "Roots & Leaves | Luxury Ayurvedic Hair & Skin Care",
     description:
-      "100% natural, handcrafted Ayurvedic hair rituals trusted across South India.",
+      "Experience the epitome of pure, luxurious Ayurvedic wellness.",
     images: [`${BRAND.url}/roots-logo.png`],
     site: "@rootsandleaves",
     creator: "@rootsandleaves",
@@ -158,6 +167,7 @@ export default function RootLayout({
       lang="en-IN"
       className={`${cormorant.variable} ${dmSans.variable}`}
       style={{ backgroundColor: "#F3E9D7" }}
+      suppressHydrationWarning
     >
       <head>
         {/* ── Preconnect to external domains for speed ── */}
@@ -181,7 +191,7 @@ export default function RootLayout({
         {/* ── Web App Manifest & Icons ── */}
         <link rel="manifest" href="/site.webmanifest" />
         <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-        <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/icon.png" />
 
         {/* ── Theme / Brand Color ── */}
         <meta name="theme-color" content="#F3E9D7" />
@@ -206,9 +216,10 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <meta name="format-detection" content="telephone=no" />
 
-        {/* ── Global Organization + WebSite Schema ── */}
+        {/* ── Global Organization + WebSite + Navigation Schema ── */}
         <SchemaOrg schema={buildOrganizationSchema()} />
         <SchemaOrg schema={buildWebSiteSchema()} />
+        <SchemaOrg schema={buildSiteNavigationSchema()} />
         <SchemaOrg schema={buildLocalBusinessSchema()} />
 
         {/* ── Google Analytics 4 (async, deferred — minimal JS overhead) ── */}
@@ -241,6 +252,7 @@ export default function RootLayout({
           <Toaster position="top-right" richColors />
           <WhatsAppButton />
         </TRPCProvider>
+        <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="afterInteractive" />
       </body>
     </html>
   );

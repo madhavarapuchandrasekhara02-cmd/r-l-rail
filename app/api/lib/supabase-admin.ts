@@ -1,11 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
+import { env } from '../../src/lib/env'
 
-const url = process.env.SUPABASE_URL || ''
-const key = process.env.SUPABASE_SERVICE_KEY
-if (!url || !key) {
-  console.error('FATAL: SUPABASE_URL and SUPABASE_SERVICE_KEY must be set in environment variables.')
-}
-
-export const supabaseAdmin = createClient(url, key || '', {
-  auth: { autoRefreshToken: false, persistSession: false },
-})
+export const supabaseAdmin = createClient(
+  env.SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL, 
+  env.SUPABASE_SERVICE_KEY, 
+  { auth: { autoRefreshToken: false, persistSession: false } }
+)

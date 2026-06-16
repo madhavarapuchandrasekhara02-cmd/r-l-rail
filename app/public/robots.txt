@@ -1,71 +1,9 @@
-# Roots & Leaves — robots.txt
-# Optimized for Google, Bing, AI crawlers (GPTBot, ClaudeBot, PerplexityBot, Gemini)
-
-# ── Standard Search Engines ──────────────────────────────────────────────────
-User-agent: Googlebot
-Allow: /
-Disallow: /admin/
-Disallow: /api/
-Disallow: /checkout/
-
-User-agent: Bingbot
-Allow: /
-Disallow: /admin/
-Disallow: /api/
-Disallow: /checkout/
-
-User-agent: Slurp
-Allow: /
-Disallow: /admin/
-Disallow: /api/
-
-# ── AI Crawlers — Allow for GEO/AEO discoverability ─────────────────────────
-# GPTBot (ChatGPT)
-User-agent: GPTBot
-Allow: /
-Disallow: /admin/
-Disallow: /api/
-Disallow: /checkout/
-
-# Google-Extended (Gemini)
-User-agent: Google-Extended
-Allow: /
-
-# ClaudeBot (Claude/Anthropic)
-User-agent: ClaudeBot
-Allow: /
-Disallow: /admin/
-Disallow: /api/
-
-# PerplexityBot
-User-agent: PerplexityBot
-Allow: /
-Disallow: /admin/
-Disallow: /api/
-
-# Applebot (Siri)
-User-agent: Applebot
-Allow: /
-
-# ── Bad Bots — Block ─────────────────────────────────────────────────────────
-User-agent: AhrefsBot
-Disallow: /
-
-User-agent: SemrushBot
-Disallow: /
-
-User-agent: MJ12bot
-Disallow: /
-
-User-agent: DotBot
-Disallow: /
-
-# ── Default fallback ─────────────────────────────────────────────────────────
+# *
 User-agent: *
 Allow: /
-Disallow: /admin/
-Disallow: /api/
-Disallow: /checkout/
 
-# ── Sitemap ──────────────────────────────────────────────────────────────────
+# Host
+Host: https://www.rootsandleaves.in
+
+# Sitemaps
 Sitemap: https://www.rootsandleaves.in/sitemap.xml

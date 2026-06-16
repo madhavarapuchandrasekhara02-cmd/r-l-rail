@@ -58,7 +58,9 @@ export default function Shop() {
         if (category) query = query.eq('category', category)
         if (search) query = query.ilike('name', `%${search}%`)
         
-        const { data, error } = await query.order('created_at', { ascending: false })
+        const { data, error } = await query
+          .order('display_order', { ascending: true })
+          .order('created_at', { ascending: false })
         if (error) { 
           console.error('Supabase error:', error)
           setLoading(false)

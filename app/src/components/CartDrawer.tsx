@@ -2,11 +2,11 @@ import { useRouter } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react'
 
 import { X, Plus, Minus, ShoppingBag, Truck } from 'lucide-react'
-import { useCart } from '@/lib/store'
+import { useCart, useUIStore } from '@/lib/store'
 import { getThumbnailImage } from '@/lib/cloudinary'
 
 export default function CartDrawer() {
-  const [open, setOpen] = useState(false)
+  const { isCartOpen: open, setCartOpen: setOpen } = useUIStore()
   const [mounted, setMounted] = useState(false)
   const router = useRouter()
   const { items, removeItem, updateQuantity, getTotal, getItemCount, getTotalWeight, clearCart } = useCart()
@@ -20,13 +20,6 @@ export default function CartDrawer() {
 
   useEffect(() => {
     setMounted(true)
-    const handler = () => setOpen((o) => !o)
-    window.addEventListener('toggle-cart', handler)
-    return () => window.removeEventListener('toggle-cart', handler)
-  }, [])
-
-  useEffect(() => {
-    (useCart.getState() as any).__cb = { setCartOpen: setOpen }
   }, [])
 
   if (!mounted) return null;
@@ -36,14 +29,14 @@ export default function CartDrawer() {
       {/* Backdrop */}
       {open && (
         <div
-          className="fixed inset-0 bg-[#4A3525]/40 backdrop-blur-sm z-[70]"
+          className="fixed inset-0 bg-[#4A3525]/40 backdrop-blur-[2px] z-[70]"
           onClick={() => setOpen(false)}
         />
       )}
 
       {/* Drawer */}
       <div
-        className={`fixed top-0 right-0 h-full w-full sm:w-[420px] bg-[#FAF9F6] z-[80] shadow-[var(--shadow-xl)] transform transition-transform duration-300 ease-out flex flex-col ${
+        className={`fixed top-0 right-0 h-full w-[80vw] sm:w-[420px] bg-[#FAF9F6] z-[80] shadow-[var(--shadow-xl)] transform transition-transform duration-300 ease-out flex flex-col ${
           open ? 'translate-x-0' : 'translate-x-full'
         }`}
       >

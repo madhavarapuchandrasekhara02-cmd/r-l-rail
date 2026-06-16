@@ -14,23 +14,23 @@ import { buildFAQSchema, buildSpeakableSchema, buildBreadcrumbSchema, BRAND } fr
 
 export const metadata: Metadata = {
   title:
-    "Roots & Leaves — South India's Premium Herbal Hair Wellness Brand | Ayurvedic Hair Care",
+    "Roots & Leaves | Luxury Ayurvedic Hair & Skin Care",
   description:
-    "South India's most trusted herbal hair wellness brand. Shop 100% natural herbal hair oils, shampoos, conditioners & bath powders handcrafted with Ayurvedic wisdom. Trusted across Andhra Pradesh, Telangana, Karnataka & Tamil Nadu.",
+    "Experience the epitome of pure, luxurious Ayurvedic wellness. Roots & Leaves offers handcrafted, 100% natural hair and face care rituals.",
   alternates: {
     canonical: "https://www.rootsandleaves.in",
   },
   openGraph: {
-    title: "Roots & Leaves — South India's Premium Herbal Hair Wellness Brand",
+    title: "Roots & Leaves | Luxury Ayurvedic Hair & Skin Care",
     description:
-      "Shop 100% natural herbal hair oils, shampoos & Ayurvedic hair care products. Trusted across South India.",
+      "Experience the epitome of pure, luxurious Ayurvedic wellness. Shop 100% natural herbal hair oils & face care rituals.",
     url: "https://www.rootsandleaves.in",
     images: [
       {
         url: "https://www.rootsandleaves.in/HeroPage1.png",
         width: 1200,
         height: 800,
-        alt: "Roots & Leaves Premium Herbal Hair Wellness Products South India",
+        alt: "Roots & Leaves Luxury Ayurvedic Hair & Face Care Products",
       },
     ],
   },

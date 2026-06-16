@@ -3,8 +3,8 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { ShoppingCart, User, Search, Menu, X, Heart } from "lucide-react";
-import { useCart } from "@/lib/store";
+import { ShoppingCart, Menu, X } from "lucide-react";
+import { useCart, useUIStore } from "@/lib/store";
 
 const NAV_LINKS = [
   { name: "Shop", href: "/shop" },
@@ -21,7 +21,6 @@ const NAV_LINKS = [
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [isCartOpen, setIsCartOpen] = useState(false);
   const pathname = usePathname();
   const itemCount = useCart((state) => state.items.reduce((sum, i) => sum + i.quantity, 0));
 
@@ -88,21 +87,10 @@ export default function Navbar() {
 
           {/* RIGHT: Actions */}
           <div className="flex items-center justify-end gap-[12px] md:gap-[20px]">
-            <button className="p-2 hover:opacity-70 transition-opacity hidden md:block">
-              <Search size={20} strokeWidth={1.5} color="#3B2F21" />
-            </button>
-            <button className="p-2 hover:opacity-70 transition-opacity hidden md:block">
-              <User size={20} strokeWidth={1.5} color="#3B2F21" />
-            </button>
-            <button className="p-2 hover:opacity-70 transition-opacity hidden sm:block">
-              <Heart size={20} strokeWidth={1.5} color="#3B2F21" />
-            </button>
+
             <button 
               className="p-2 hover:opacity-70 transition-opacity relative"
-              onClick={() => {
-                const store = useCart.getState() as any;
-                if (store.__cb?.setCartOpen) store.__cb.setCartOpen(true);
-              }}
+              onClick={() => useUIStore.getState().setCartOpen(true)}
             >
               <ShoppingCart size={20} strokeWidth={1.5} color="#3B2F21" />
               {itemCount > 0 && (

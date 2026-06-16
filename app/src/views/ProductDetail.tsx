@@ -1,51 +1,41 @@
 "use client";
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronDown, ChevronUp, Star, Plus, Minus, ShoppingCart } from 'lucide-react'
-import { supabase, type Product, type ProductVariant } from '@/lib/supabase'
-import { useCart } from '@/lib/store'
+import { type Product, type ProductVariant } from '@/lib/supabase'
+import { useCart, useUIStore } from '@/lib/store'
 import PageWrapper from '@/components/PageWrapper'
 import { getThumbnailImage, getGalleryImage } from '@/lib/cloudinary'
+import { useRouter } from 'next/navigation'
 
-export default function ProductDetail() {
-  const params = useParams();
-  const slug = params?.slug as string;
-  const [product, setProduct] = useState<(Product & { variants: ProductVariant[] }) | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null)
+export default function ProductDetail({ initialProduct }: { initialProduct?: any }) {
+  // Map product_variants to variants for the UI
+  const productData = initialProduct ? { ...initialProduct, variants: initialProduct.product_variants || [] } : null;
+  const product = productData;
+  const router = useRouter();
+  
+  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(product?.variants?.[0] || null)
   const [quantity, setQuantity] = useState(1)
   const [activeImage, setActiveImage] = useState(0)
   const [expandedSection, setExpandedSection] = useState<string | null>(null)
   const addItem = useCart((s) => s.addItem)
   const [added, setAdded] = useState(false)
 
-  useEffect(() => {
-    async function fetchProduct() {
-      if (!slug) return
-      setLoading(true)
-      try {
-        const { data, error } = await supabase
-          .from('products')
-          .select(`*, product_variants(*)`)
-          .eq('slug', slug)
-          .single()
-
-        if (error) { console.error('Supabase error:', error); setLoading(false); return }
-        const mapped = { ...data, variants: data.product_variants || [] }
-        setProduct(mapped)
-        if (mapped.variants.length > 0) setSelectedVariant(mapped.variants[0])
-      } catch (err) { console.error('Fetch error:', err) } finally { setLoading(false) }
-    }
-    fetchProduct()
-  }, [slug])
-
   const handleAddToCart = () => {
     if (!product || !selectedVariant) return
     addItem({ productId: product.id, variantId: selectedVariant.id, name: product.name, variantLabel: selectedVariant.size_label, price: selectedVariant.price, quantity, image: product.images?.[0] || '' })
     setAdded(true)
-    setTimeout(() => setAdded(false), 2000)
+    setTimeout(() => {
+      setAdded(false)
+      useUIStore.getState().setCartOpen(true)
+    }, 600)
+  }
+
+  const handleBuyNow = () => {
+    if (!product || !selectedVariant) return
+    addItem({ productId: product.id, variantId: selectedVariant.id, name: product.name, variantLabel: selectedVariant.size_label, price: selectedVariant.price, quantity, image: product.images?.[0] || '' })
+    router.push('/checkout')
   }
 
   const sections = [
@@ -55,22 +45,7 @@ export default function ProductDetail() {
     { key: 'storage', label: 'Storage Instructions', content: product?.description ? 'Store in a cool, dry place away from direct sunlight. Best consumed within 3 months of opening.' : null },
   ]
 
-  if (loading) {
-    return (
-      <PageWrapper>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-20">
-          <div className="grid lg:grid-cols-2 gap-10">
-            <div className="aspect-square bg-[#F0E6D9] rounded-3xl animate-pulse" />
-            <div className="space-y-4">
-              <div className="h-8 bg-[#F0E6D9] rounded animate-pulse w-3/4" />
-              <div className="h-6 bg-[#F0E6D9] rounded animate-pulse w-1/3" />
-              <div className="h-4 bg-[#F0E6D9] rounded animate-pulse w-full" />
-            </div>
-          </div>
-        </div>
-      </PageWrapper>
-    )
-  }
+  // Loading skeleton removed because data is passed directly from the server.
 
   if (!product) {
     return (
@@ -107,16 +82,16 @@ export default function ProductDetail() {
           <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex flex-col-reverse lg:flex-row gap-4">
             {images.length > 1 && (
               <div className="flex lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto no-scrollbar py-2 lg:py-0 lg:w-20 lg:h-[600px]">
-                {images.map((img, i) => (
+                {images.map((img: string, i: number) => (
                   <button key={i} onClick={() => setActiveImage(i)} className={`flex-shrink-0 w-16 h-16 lg:w-20 lg:h-20 rounded-xl overflow-hidden border-2 transition-colors cursor-pointer ${activeImage === i ? 'border-[#B37943]' : 'border-transparent opacity-60 hover:opacity-100'}`}>
-                    <img src={getThumbnailImage(img)} alt="" className="w-full h-full object-cover" />
+                    <img src={getThumbnailImage(img)} alt="Thumbnail" loading="lazy" className="w-full h-full object-cover" />
                   </button>
                 ))}
               </div>
             )}
             <div className="relative flex-1 aspect-[4/5] lg:h-[600px] bg-[#F0E6D9] rounded-3xl overflow-hidden group">
               <AnimatePresence mode="wait">
-                <motion.img key={activeImage} src={getGalleryImage(images[activeImage])} alt={product.name} className="absolute inset-0 w-full h-full object-cover" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} drag="x" dragConstraints={{ left: 0, right: 0 }} onDragEnd={handleDragEnd} />
+                <motion.img key={activeImage} src={getGalleryImage(images[activeImage])} alt={product.name} className="absolute inset-0 w-full h-full object-cover" fetchPriority="high" loading="eager" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} drag="x" dragConstraints={{ left: 0, right: 0 }} onDragEnd={handleDragEnd} />
               </AnimatePresence>
               {images.length > 1 && (
                 <>
@@ -147,7 +122,7 @@ export default function ProductDetail() {
               <div className="mb-6">
                 <label className="text-sm font-semibold text-[#4A3525] mb-3 block uppercase tracking-wider">Select Size</label>
                 <div className="flex flex-wrap gap-2">
-                  {product.variants.map((variant) => (
+                  {product.variants.map((variant: ProductVariant) => (
                     <button key={variant.id} onClick={() => setSelectedVariant(variant)} className={`px-4 py-2 rounded-xl text-sm font-medium border-[1.5px] transition-all duration-250 cursor-pointer ${selectedVariant?.id === variant.id ? 'border-[#B37943] bg-[#B37943]/5 text-[#B37943]' : 'border-[#E5C492]/30 text-[#8B7355] hover:border-[#B37943]/50'}`}>
                       {variant.size_label} - Rs.{variant.price}
                     </button>
@@ -167,10 +142,15 @@ export default function ProductDetail() {
               </div>
             </div>
 
-            <button onClick={handleAddToCart} className={`w-full sm:w-auto px-12 h-14 rounded-full text-sm font-bold uppercase tracking-widest flex items-center justify-center gap-3 transition-all duration-300 cursor-pointer ${added ? 'bg-[#4A3525] text-[#FAF9F6] shadow-xl' : 'bg-[#B37943] text-[#FAF9F6] hover:bg-[#96612F] shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.98]'}`}>
-              <ShoppingCart className="w-5 h-5" />
-              {added ? 'Added to Cart!' : `Add to Cart - ₹${((selectedVariant?.price || 0) * quantity)}`}
-            </button>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button onClick={handleAddToCart} className={`flex-1 px-6 h-14 rounded-full text-sm font-bold uppercase tracking-widest flex items-center justify-center gap-3 transition-all duration-300 cursor-pointer ${added ? 'bg-[#4A3525] text-[#FAF9F6] shadow-xl' : 'bg-[#B37943] text-[#FAF9F6] hover:bg-[#96612F] shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.98]'}`}>
+                <ShoppingCart className="w-5 h-5" />
+                {added ? 'Added to Cart!' : `Add to Cart`}
+              </button>
+              <button onClick={handleBuyNow} className="flex-1 px-6 h-14 rounded-full text-sm font-bold uppercase tracking-widest flex items-center justify-center transition-all duration-300 cursor-pointer bg-[#2D362E] text-[#FAF9F6] hover:bg-[#1A211B] shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.98]">
+                Buy Now - ₹{((selectedVariant?.price || 0) * quantity)}
+              </button>
+            </div>
 
             <div className="mt-12 space-y-3">
               {sections.map((section) => (

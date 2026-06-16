@@ -179,9 +179,10 @@ function RitualStoryCard({
 
   return (
     <motion.div
+      suppressHydrationWarning
       className={`ritual-story-card relative overflow-hidden rounded-[32px] bg-[#2D241A] shadow-[0_12px_24px_rgba(74,53,37,0.08)] border border-[#E5C492]/20 group cursor-pointer z-10 transition-all duration-500 
         ${isMobile ? 'h-[380px] sm:h-[420px] w-full mx-auto' : 'aspect-[9/16] w-full'}
-        ${isMobile && !isActive ? 'opacity-40 scale-90 blur-[1px]' : 'opacity-100 scale-100 blur-0'}
+        ${isMobile && !isActive ? 'opacity-100 scale-90 blur-[1px]' : 'opacity-100 scale-100 blur-0'}
       `}
       initial={isMobile ? { opacity: 0, y: 30 } : { opacity: 0, y: 40 }}
       whileInView={{ opacity: 1, y: 0 }}
@@ -291,6 +292,11 @@ export default function RitualStories() {
   const [isMouseDevice, setIsMouseDevice] = useState(false);
   const sectionRef = useRef(null);
   const isInView = useInView(sectionRef, { amount: 0.2 });
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     const handleMouseMove = () => {
@@ -314,8 +320,8 @@ export default function RitualStories() {
         </div>
 
         {/* Desktop View: Full-Width 5-Column Grid */}
-        <div className="hidden lg:grid grid-cols-5 gap-6 lg:gap-8 relative pb-20">
-          {YOUTUBE_SHORT_IDS.map((id, index) => (
+        <div className={`hidden lg:grid grid-cols-5 gap-6 lg:gap-8 relative pb-20 transition-opacity duration-1000 ${isMounted ? 'opacity-100' : 'opacity-0'}`}>
+          {isMounted && YOUTUBE_SHORT_IDS.map((id, index) => (
             <RitualStoryCard 
               key={id} 
               id={id} 
@@ -327,57 +333,59 @@ export default function RitualStories() {
         </div>
 
         {/* Tablet & Mobile View: Centered Luxury Carousel with Navigation Arrows */}
-        <div className="lg:hidden relative px-4">
-          <Swiper
-            modules={[Pagination, Navigation]}
-            centeredSlides={true}
-            initialSlide={1}
-            slidesPerView={1.3}
-            spaceBetween={20}
-            onSlideChange={(swiper) => setActiveMobileIndex(swiper.activeIndex)}
-            navigation={{
-              nextEl: '.swiper-button-next-custom',
-              prevEl: '.swiper-button-prev-custom',
-            }}
-            breakpoints={{
-              640: {
-                slidesPerView: 2.2,
-                spaceBetween: 30,
-              }
-            }}
-            className="ritual-stories-swiper !pb-8 !pt-2"
-          >
-            {YOUTUBE_SHORT_IDS.map((id, index) => (
-              <SwiperSlide key={id} className="py-[5px]">
-                <RitualStoryCard 
-                  id={id} 
-                  index={index} 
-                  isMobile={true} 
-                  isActive={activeMobileIndex === index}
-                  isMouseDevice={isMouseDevice}
-                  isSectionInView={isInView}
-                />
-              </SwiperSlide>
-            ))}
+        <div className={`lg:hidden relative px-4 transition-opacity duration-1000 ${isMounted ? 'opacity-100' : 'opacity-0'}`}>
+          {isMounted && (
+            <Swiper
+              modules={[Pagination, Navigation]}
+              centeredSlides={true}
+              initialSlide={1}
+              slidesPerView={1.3}
+              spaceBetween={20}
+              onSlideChange={(swiper) => setActiveMobileIndex(swiper.activeIndex)}
+              navigation={{
+                nextEl: '.swiper-button-next-custom',
+                prevEl: '.swiper-button-prev-custom',
+              }}
+              breakpoints={{
+                640: {
+                  slidesPerView: 2.2,
+                  spaceBetween: 30,
+                }
+              }}
+              className="ritual-stories-swiper !pb-8 !pt-2"
+            >
+              {YOUTUBE_SHORT_IDS.map((id, index) => (
+                <SwiperSlide key={id} className="py-[5px]">
+                  <RitualStoryCard 
+                    id={id} 
+                    index={index} 
+                    isMobile={true} 
+                    isActive={activeMobileIndex === index}
+                    isMouseDevice={isMouseDevice}
+                    isSectionInView={isInView}
+                  />
+                </SwiperSlide>
+              ))}
 
-            {/* Custom Luxury Navigation Arrows */}
-            <div className="swiper-button-prev-custom absolute left-0 top-[40%] -translate-y-1/2 z-[60] cursor-pointer">
-              <motion.div 
-                whileTap={{ scale: 0.9 }}
-                className="w-10 h-10 rounded-full bg-white/40 backdrop-blur-md border border-[#E5C492]/30 flex items-center justify-center shadow-lg"
-              >
-                <ChevronLeft size={20} className="text-[#4A3525]" />
-              </motion.div>
-            </div>
-            <div className="swiper-button-next-custom absolute right-0 top-[40%] -translate-y-1/2 z-[60] cursor-pointer">
-              <motion.div 
-                whileTap={{ scale: 0.9 }}
-                className="w-10 h-10 rounded-full bg-white/40 backdrop-blur-md border border-[#E5C492]/30 flex items-center justify-center shadow-lg"
-              >
-                <ChevronRight size={20} className="text-[#4A3525]" />
-              </motion.div>
-            </div>
-          </Swiper>
+              {/* Custom Luxury Navigation Arrows */}
+              <div className="swiper-button-prev-custom absolute left-0 top-[40%] -translate-y-1/2 z-[60] cursor-pointer">
+                <motion.div 
+                  whileTap={{ scale: 0.9 }}
+                  className="w-10 h-10 rounded-full bg-white/40 backdrop-blur-md border border-[#E5C492]/30 flex items-center justify-center shadow-lg"
+                >
+                  <ChevronLeft size={20} className="text-[#4A3525]" />
+                </motion.div>
+              </div>
+              <div className="swiper-button-next-custom absolute right-0 top-[40%] -translate-y-1/2 z-[60] cursor-pointer">
+                <motion.div 
+                  whileTap={{ scale: 0.9 }}
+                  className="w-10 h-10 rounded-full bg-white/40 backdrop-blur-md border border-[#E5C492]/30 flex items-center justify-center shadow-lg"
+                >
+                  <ChevronRight size={20} className="text-[#4A3525]" />
+                </motion.div>
+              </div>
+            </Swiper>
+          )}
         </div>
         
         {/* Luxury Social Links: Royal & Rich Redesign */}

@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Search, Package, MapPin, Calendar, Clock, AlertCircle, ShoppingBag, Truck, CheckCircle2, ChevronRight, ArrowLeft, Building } from 'lucide-react'
+import { Search, Package, MapPin, Calendar, Clock, AlertCircle, ShoppingBag, Truck, CheckCircle2, ChevronRight, ArrowLeft } from 'lucide-react'
 // Removed direct supabase client import for security hardening
 import PageWrapper from '@/components/PageWrapper'
 import { trpc } from '@/providers/trpc'
@@ -39,7 +39,7 @@ export default function TrackOrder() {
   const shipment = order?.shipments?.[0]
   
   // Normalize live status
-  const liveStatus = trackingData?.success ? trackingData.status?.toLowerCase() : ''
+  const liveStatus = (trackingData?.success ? trackingData.status?.toLowerCase() : '') || ''
   const dbStatus = shipment?.tracking_status?.toLowerCase() || ''
   const ordStatus = order?.status?.toLowerCase() || ''
   
@@ -47,60 +47,35 @@ export default function TrackOrder() {
   const scanStatuses = (trackingData?.activity || []).map((s: any) => s.status?.toLowerCase() || '')
   const scanLocations = (trackingData?.activity || []).map((s: any) => s.location?.toLowerCase() || '')
 
-  // 1. Order Confirmed: always active for valid order
-  const step1Active = !!order
+  // 1. Order Confirmed: always true if order exists
+  const step1Active = true
 
-  // 2. Packed: order paid/shipped/delivered, or shipment exists
-  const step2Active = ['paid', 'shipped', 'delivered'].includes(ordStatus) || !!shipment
+  // 2. Packed: packed, shipped, or delivered
+  const step2Active = ['packed', 'shipped', 'delivered'].includes(ordStatus) || ['packed', 'shipped', 'delivered'].includes(dbStatus)
 
-  // 3. Pickup Scheduled: pickup scheduled in DB or waybill generated
+  // 3. Pickup Scheduled: schedule created
   const step3Active = 
-    ['shipped', 'delivered'].includes(ordStatus) || 
-    !!waybill || 
+    ['shipped', 'delivered'].includes(ordStatus) ||
+    ['shipped', 'delivered'].includes(dbStatus) ||
     shipment?.pickup_status?.toLowerCase() === 'scheduled' || 
     !!shipment?.pickup_scheduled_time ||
     scanStatuses.some((s: string) => s.includes('pickup') || s.includes('manifest'))
 
-  // 4. Picked Up: courier scanned and picked up
+  // 4. Dispatched: marked dispatched in admin
   const step4Active = 
-    ['shipped', 'delivered'].includes(ordStatus) && (
-      ['picked up', 'dispatched', 'in transit', 'reached hub', 'out for delivery', 'delivered',
-       'reached at destination hub', 'reached destination hub'].some(s => liveStatus.includes(s)) ||
-      ['shipped', 'delivered'].includes(dbStatus) ||
-      scanStatuses.some((s: string) => !s.includes('pickup booked') && !s.includes('manifest') && s.length > 0)
-    )
+    ['shipped', 'delivered'].includes(ordStatus) ||
+    ['shipped', 'delivered'].includes(dbStatus) ||
+    scanStatuses.some((s: string) => s.includes('shipped') || s.includes('dispatched') || s.includes('transit'))
 
-  // 5. In Transit: in transit or subsequent status
-  const step5Active = 
-    ['in transit', 'reached hub', 'out for delivery', 'delivered',
-     'reached at destination hub', 'reached destination hub'].some(s => liveStatus.includes(s)) ||
-    ['in transit', 'delivered'].includes(dbStatus) ||
-    scanStatuses.some((s: string) => s.includes('transit') || s.includes('shipped') || s.includes('dispatched') || s.includes('forwarded'))
-
-  // 6. Reached Hub: arrived at local hub
-  const step6Active = 
-    ['reached hub', 'out for delivery', 'delivered',
-     'reached at destination hub', 'reached destination hub'].some(s => liveStatus.includes(s)) ||
-    scanStatuses.some((s: string) => s.includes('hub') || s.includes('sorting') || s.includes('arrived') || s.includes('destination') || s.includes('reached')) ||
-    scanLocations.some((l: string) => l.includes('hub') || l.includes('sorting') || l.includes('facility'))
-
-  // 7. Out For Delivery: courier out for delivery today
-  const step7Active = 
-    ['out for delivery', 'delivered'].some(s => liveStatus.includes(s)) ||
-    scanStatuses.some((s: string) => s.includes('out for delivery') || s.includes('outfordelivery') || s.includes('out_for_delivery'))
-
-  // 8. Delivered: successfully received
-  const step8Active = ordStatus === 'delivered' || liveStatus.includes('delivered') || dbStatus === 'delivered'
+  // 5. Delivered: successfully received
+  const step5Active = ordStatus === 'delivered' || liveStatus.includes('delivered') || dbStatus === 'delivered'
 
   const steps = [
     { status: 'Order Confirmed', icon: ShoppingBag, active: step1Active, desc: 'Your ritual has been received' },
     { status: 'Packed', icon: Package, active: step2Active, desc: 'Sandalwood & ritual items packed' },
     { status: 'Pickup Scheduled', icon: Calendar, active: step3Active, desc: 'Courier scheduled to collect' },
-    { status: 'Picked Up', icon: Truck, active: step4Active, desc: 'Collected by Delhivery' },
-    { status: 'In Transit', icon: MapPin, active: step5Active, desc: 'Ritual traveling to you' },
-    { status: 'Reached Hub', icon: Building, active: step6Active, desc: 'Arrived at local sorting center' },
-    { status: 'Out For Delivery', icon: Clock, active: step7Active, desc: 'Courier is delivering today' },
-    { status: 'Delivered', icon: CheckCircle2, active: step8Active, desc: 'Successfully received' }
+    { status: 'Dispatched', icon: Truck, active: step4Active, desc: 'Ritual is on the way to you' },
+    { status: 'Delivered', icon: CheckCircle2, active: step5Active, desc: 'Successfully received' }
   ]
 
   React.useEffect(() => {
@@ -293,7 +268,7 @@ export default function TrackOrder() {
                               </h4>
                               <p className="text-[9px] text-[#8B7355] italic mt-0.5">{step.desc}</p>
                             </div>
-                            {step.active && i < 7 && steps[i + 1].active && (
+                            {step.active && i < 4 && steps[i + 1].active && (
                                <div className="absolute left-[18px] top-9 h-6 w-[1px] bg-[#B37943] z-0" />
                             )}
                           </div>
@@ -358,20 +333,33 @@ export default function TrackOrder() {
                     animate={{ opacity: 1, scale: 1 }} 
                     className="bg-white/80 backdrop-blur-md rounded-[32px] border border-[#E5C492]/20 shadow-2xl p-8 md:p-12 space-y-8"
                   >
-                    <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#EADCC8]/30 pb-6">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-[#B37943]/10 flex items-center justify-center text-[#B37943]">
-                          <Truck className="w-6 h-6" />
+                      <div className="flex flex-col gap-4 w-full">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-2xl bg-[#B37943]/10 flex items-center justify-center text-[#B37943]">
+                              <Truck className="w-6 h-6" />
+                            </div>
+                            <div>
+                              <h3 className="text-xl text-[#4A3525] font-serif">Delhivery Live Courier Journey</h3>
+                              <p className="text-[10px] text-[#B37943] font-bold uppercase tracking-wider mt-0.5 flex items-center gap-2">
+                                Waybill: <span className="text-[#4A3525] bg-[#B37943]/10 px-1.5 py-0.5 rounded select-all cursor-pointer" onClick={() => navigator.clipboard.writeText(waybill)} title="Click to copy">{waybill}</span>
+                              </p>
+                            </div>
+                          </div>
+                          <a
+                            href="https://www.delhivery.com/tracking"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="h-10 px-6 bg-[#B37943] hover:bg-[#96612F] text-white rounded-full text-[10px] font-sans font-bold uppercase tracking-widest transition-all flex items-center justify-center cursor-pointer shadow-sm shrink-0"
+                          >
+                            Open Live Portal
+                          </a>
                         </div>
-                        <div>
-                          <h3 className="text-xl text-[#4A3525] font-serif">Delhivery Live Courier Journey</h3>
-                          <p className="text-[10px] text-[#B37943] font-bold uppercase tracking-wider mt-0.5">Waybill: {waybill}</p>
-                        </div>
+                        <p className="text-[11px] text-[#8B7355] italic bg-[#FAF9F6] p-3 rounded-xl border border-[#E5C492]/30 mt-2">
+                          <strong className="font-sans uppercase tracking-wider text-[#B37943] text-[9px] block mb-1">To track on Delhivery&apos;s official portal:</strong>
+                          Click the button above and copy-paste your Waybill ID (<strong className="select-all text-[#4A3525] cursor-pointer" onClick={() => navigator.clipboard.writeText(waybill)}>{waybill}</strong>), or simply enter your registered mobile number on their website.
+                        </p>
                       </div>
-                      <span className="px-4 py-2 bg-emerald-50 text-emerald-700 font-bold uppercase tracking-widest text-[9px] rounded-xl border border-emerald-100 flex items-center gap-1.5">
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Dispatched via Delhivery One
-                      </span>
-                    </div>
 
                     {trackingLoading ? (
                       <div className="py-12 text-center flex flex-col items-center">

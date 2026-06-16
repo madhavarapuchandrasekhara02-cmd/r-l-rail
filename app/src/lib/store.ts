@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { getPackedWeight } from '@/lib/weight'
 
 export type CartItem = {
   productId: string
@@ -60,17 +61,13 @@ export const useCart = create<CartStore>()(
       getItemCount: () =>
         get().items.reduce((sum, i) => sum + i.quantity, 0),
       getTotalWeight: () =>
-        get().items.reduce((sum, i) => {
-          const weightMatch = i.variantLabel.match(/(\d+(?:\.\d+)?)\s*(g|kg|ml|l)/i)
-          if (weightMatch) {
-            let w = parseFloat(weightMatch[1])
-            const unit = weightMatch[2].toLowerCase()
-            if (unit === 'kg' || unit === 'l') w *= 1000
-            return sum + w * i.quantity
-          }
-          return sum + 100 * i.quantity
-        }, 0),
+        get().items.reduce((sum, i) => sum + getPackedWeight(i.variantLabel) * i.quantity, 0),
     }),
     { name: 'roots-leaves-cart' }
   )
 )
+
+export const useUIStore = create<{ isCartOpen: boolean; setCartOpen: (b: boolean) => void }>((set) => ({
+  isCartOpen: false,
+  setCartOpen: (isCartOpen) => set({ isCartOpen }),
+}))

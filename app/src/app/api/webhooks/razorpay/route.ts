@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server'
+export const dynamic = 'force-dynamic'
 import crypto from 'crypto'
 import { supabaseAdmin } from '../../../../../api/lib/supabase-admin'
 
-const RAZORPAY_WEBHOOK_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET || 'your-webhook-secret'
+import { env } from '../../../../lib/env'
+
+const RAZORPAY_WEBHOOK_SECRET = env.RAZORPAY_WEBHOOK_SECRET
 
 export async function POST(req: Request) {
   try {
@@ -38,7 +41,10 @@ export async function POST(req: Request) {
 
         if (findErr || !order) {
           console.warn(`[Razorpay Webhook] Order with Razorpay Order ID ${razorpayOrderId} not found`)
-        } else if (order.status !== 'Paid' && order.status !== 'Shipped' && order.status !== 'Delivered') {
+        } else if (order.status === 'Paid' || order.status === 'Shipped' || order.status === 'Delivered') {
+          console.log(`[Razorpay Webhook] Order ${order.id} is already processed. Ignoring duplicate webhook to save resources.`)
+          return NextResponse.json({ success: true, message: 'Already processed' })
+        } else {
           // Transition order status to Paid securely
           const { error: updateErr } = await supabaseAdmin
             .from('orders')

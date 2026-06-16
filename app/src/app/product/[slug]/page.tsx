@@ -221,8 +221,8 @@ export default async function Page({
         </section>
       )}
 
-      {/* ── The actual UI (unchanged) ── */}
-      <ProductDetail />
+      {/* ── The actual UI (Data passed from server for instant load) ── */}
+      <ProductDetail initialProduct={product || null} />
     </>
   );
 }

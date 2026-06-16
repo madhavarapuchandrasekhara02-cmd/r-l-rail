@@ -387,7 +387,7 @@
 
 
   .ritual-card-overlay {
-    background: linear-gradient(to top, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.3) 60%, rgba(0, 0, 0, 0.1) 100%) !important;
+    background: transparent !important;
   }
 
   .testimonial-text-responsive {
@@ -492,8 +492,8 @@
 }
 
 .with-navbar-padding {
-  padding-top: 88px !important;
-  /* Navbar height (78px) + 10px extra */
+  padding-top: 110px !important;
+  /* Navbar height (78px) + 32px extra */
 }
 
 @media (max-width: 1023px) {
@@ -509,8 +509,8 @@
   }
 
   .with-navbar-padding {
-    padding-top: 74px !important;
-    /* Navbar (64px) + 10px */
+    padding-top: 96px !important;
+    /* Navbar (70px) + 26px */
   }
 }
 
@@ -527,8 +527,8 @@
   }
 
   .with-navbar-padding {
-    padding-top: 64px !important;
-    /* Navbar (54px) + 10px */
+    padding-top: 88px !important;
+    /* Navbar (64px) + 24px */
   }
 
   .luxury-container {
@@ -658,7 +658,7 @@
 .hero-wrapper {
   width: 100%;
   max-width: 1600px;
-  margin: 78px auto 10px;
+  margin: 100px auto 10px;
   /* 10px bottom margin for trust strip visibility */
   padding: 0 20px;
 }

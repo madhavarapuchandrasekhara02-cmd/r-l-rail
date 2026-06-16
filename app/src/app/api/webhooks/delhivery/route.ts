@@ -1,68 +1,68 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+export const dynamic = 'force-dynamic'
 import { supabaseAdmin } from '../../../../../api/lib/supabase-admin'
 
-const APP_SECRET = process.env.APP_SECRET || 'your-app-secret'
-
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const url = new URL(req.url)
-    const token = url.searchParams.get('token') || req.headers.get('Authorization')
-    
-    // Verify token to prevent unauthorized status injections
-    if (token !== APP_SECRET && token !== `Bearer ${APP_SECRET}`) {
-      console.warn('[Delhivery Webhook] Unauthorized access attempt blocked')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const body = await req.json()
+    console.log('[Delhivery Webhook] Received payload:', JSON.stringify(body))
+
+    // Delhivery payload structure
+    const shipmentData = body?.Shipment || body
+    const statusObj = shipmentData?.Status
+    const waybill = shipmentData?.Waybill || shipmentData?.AWB
+
+    if (!waybill || !statusObj?.Status) {
+      console.warn('[Delhivery Webhook] Invalid payload structure. Missing Waybill or Status.')
+      return new NextResponse('Invalid payload', { status: 400 })
     }
 
-    const payload = await req.json()
-    console.log('[Delhivery Webhook] Received tracking update:', JSON.stringify(payload))
+    const currentStatus = statusObj.Status.trim()
+    console.log(`[Delhivery Webhook] Waybill: ${waybill} is now ${currentStatus}`)
 
-    // Expecting standard Delhivery webhook format: { waybill: "...", status: "...", location: "..." }
-    const waybill = payload.waybill || payload.awb
-    const trackingStatus = payload.status || payload.state
+    // 1. First find the order ID associated with this waybill
+    const { data: shipmentRecords, error: fetchErr } = await supabaseAdmin
+      .from('shipments')
+      .select('order_id')
+      .eq('waybill', waybill)
+      
+    if (fetchErr || !shipmentRecords || shipmentRecords.length === 0) {
+      console.error(`[Delhivery Webhook] Waybill ${waybill} not found in database.`)
+      return new NextResponse('Waybill not found', { status: 404 })
+    }
 
-    if (waybill) {
-      // Find shipment by waybill
-      const { data: shipment, error: shipErr } = await supabaseAdmin
-        .from('shipments')
-        .select('id, order_id')
-        .eq('waybill', waybill)
-        .single()
+    const orderId = shipmentRecords[0].order_id
 
-      if (shipErr || !shipment) {
-        console.warn(`[Delhivery Webhook] Shipment with waybill ${waybill} not found`)
-      } else {
-        // Map trackingStatus to order status: Shipped, Delivered, etc.
-        let orderStatus = 'Shipped'
-        if (trackingStatus?.toLowerCase() === 'delivered' || trackingStatus?.toLowerCase() === 'dl') {
-          orderStatus = 'Delivered'
-        }
+    // 2. Update the shipment record with the latest status
+    const { error: shipmentUpdateErr } = await supabaseAdmin
+      .from('shipments')
+      .update({ tracking_status: currentStatus })
+      .eq('waybill', waybill)
 
-        // Update shipment tracking state
-        await supabaseAdmin
-          .from('shipments')
-          .update({
-            tracking_status: trackingStatus,
-            shipped_at: orderStatus === 'Shipped' ? new Date().toISOString() : undefined,
-          })
-          .eq('id', shipment.id)
+    if (shipmentUpdateErr) {
+      console.error(`[Delhivery Webhook] Failed to update shipment record:`, shipmentUpdateErr)
+    }
 
-        // Update order status
-        await supabaseAdmin
-          .from('orders')
-          .update({
-            status: orderStatus,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', shipment.order_id)
-
-        console.log(`[Delhivery Webhook] Successfully updated Waybill ${waybill} to ${trackingStatus} and Order to ${orderStatus}`)
+    // 3. If Delivered, update the main orders table to Delivered
+    if (currentStatus.toLowerCase() === 'delivered') {
+      const { error: orderUpdateErr } = await supabaseAdmin
+        .from('orders')
+        .update({ status: 'Delivered', updated_at: new Date().toISOString() })
+        .eq('id', orderId)
+        
+      if (orderUpdateErr) {
+        console.error(`[Delhivery Webhook] Failed to update order status:`, orderUpdateErr)
+        return new NextResponse('Database error', { status: 500 })
       }
+      
+      console.log(`[Delhivery Webhook] SUCCESS! Order ${orderId} marked as Delivered.`)
     }
 
-    return NextResponse.json({ success: true })
-  } catch (err: any) {
-    console.error('[Delhivery Webhook] Exception:', err)
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    // Always return 200 OK to acknowledge receipt, otherwise Delhivery will keep retrying
+    return new NextResponse('Webhook processed successfully', { status: 200 })
+
+  } catch (error: any) {
+    console.error('[Delhivery Webhook] Exception:', error)
+    return new NextResponse('Internal Server Error', { status: 500 })
   }
 }
