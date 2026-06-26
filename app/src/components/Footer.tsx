@@ -166,7 +166,7 @@ export default function Footer() {
             <MessageCircle className="w-5 h-5 text-[var(--footer-gold)] shrink-0 mb-1" />
             <div className="space-y-1">
               <h4 className="text-[10px] uppercase tracking-widest font-bold text-[var(--footer-gold)]">Let's Talk</h4>
-              <p className="text-[13px] text-[#FDFBF7]/60 leading-relaxed">+91 63012 04845<br />+91 99493 49934</p>
+              <p className="text-[13px] text-[#FDFBF7]/60 leading-relaxed">+91 63012 04845</p>
             </div>
           </div>
           <div className="flex flex-col items-center gap-3">

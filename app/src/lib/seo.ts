@@ -16,7 +16,7 @@ export const BRAND = {
   url: "https://www.rootsandleaves.in",
   logo: "https://www.rootsandleaves.in/roots-logo.png",
   email: "Rootsleaves2@gmail.com",
-  phone: ["+916301204845", "+919949349934"],
+  phone: ["+916301204845"],
   address: {
     street: "10-1-62, Chaitanya Nagar, Gajuwaka",
     city: "Visakhapatnam",
