@@ -47,10 +47,10 @@ const trustPillars = [
 ]
 
 const heroSlides = [
-  { title: "Sacred Rituals", image: "/HeroPage1.png", alt: "Roots & Leaves premium herbal hair wellness — Sacred Ayurvedic rituals South India" },
-  { title: "Luminous Glow", image: "/HeroPage2.png", alt: "Roots & Leaves natural hair care products — Luminous herbal glow Andhra Pradesh Telangana" },
-  { title: "Holistic Vitality", image: "/HeroPage3.png", alt: "Roots & Leaves holistic Ayurvedic hair vitality — pure botanical hair oil South India" },
-  { title: "Pure Tradition", image: "/HeroPage4.png", alt: "Roots & Leaves traditional South Indian herbal hair care — pure handcrafted Ayurveda" },
+  { title: "Sacred Rituals", image: "/HeroPage1_v2.png", alt: "Roots & Leaves premium herbal hair wellness — Sacred Ayurvedic rituals South India" },
+  { title: "Luminous Glow", image: "/HeroPage2_v2.png", alt: "Roots & Leaves natural hair care products — Luminous herbal glow Andhra Pradesh Telangana" },
+  { title: "Holistic Vitality", image: "/HeroPage3_v2.png", alt: "Roots & Leaves holistic Ayurvedic hair vitality — pure botanical hair oil South India" },
+  { title: "Pure Tradition", image: "/HeroPage4_v2.png", alt: "Roots & Leaves traditional South Indian herbal hair care — pure handcrafted Ayurveda" },
 ];
 
 export default function Home() {

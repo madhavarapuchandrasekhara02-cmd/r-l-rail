@@ -184,7 +184,7 @@ export default function RootLayout({
         <link
           rel="preload"
           as="image"
-          href="/HeroPage1.png"
+          href="/HeroPage1_v2.png"
           fetchPriority="high"
         />
 
