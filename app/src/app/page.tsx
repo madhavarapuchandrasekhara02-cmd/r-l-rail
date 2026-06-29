@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     url: "https://www.rootsandleaves.in",
     images: [
       {
-        url: "https://www.rootsandleaves.in/HeroPage1_v2.png",
+        url: "https://www.rootsandleaves.in/hero-page-1_v3.png",
         width: 1200,
         height: 800,
         alt: "Roots & Leaves Luxury Ayurvedic Hair & Face Care Products",

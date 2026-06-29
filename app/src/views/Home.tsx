@@ -30,10 +30,10 @@ const stagger = (delay: number) => ({
 })
 
 const ritualCategories = [
-  { name: 'Hair Ritual', slug: 'hair-rituals', desc: 'Nourish roots with sacred botanical oils.', bg: '#3B2F21', image: '/haircare.png', altText: 'Roots & Leaves herbal hair care ritual products — natural Ayurvedic hair oils South India' },
-  { name: 'Wellness Ritual', slug: 'wellness-rituals', desc: 'Ancient nourishment for modern living.', bg: '#2D362E', image: '/wellness.png', altText: 'Roots & Leaves Ayurvedic wellness products — herbal bath powders and natural wellness South India' },
-  { name: 'Face Ritual', slug: 'face-rituals', desc: 'Glow through timeless Ayurvedic care.', bg: '#4A4238', image: '/facecare.png', altText: 'Roots & Leaves natural face care ritual — Ayurvedic herbal face products South India' },
-  { name: 'Baby Ritual', slug: 'baby-rituals', desc: 'Gentle Ayurvedic care for delicate beginnings.', bg: '#5C544A', image: '/babycare.png', altText: 'Roots & Leaves gentle herbal baby care products — natural Ayurvedic baby ritual South India' },
+  { name: 'Hair Ritual', slug: 'hair-rituals', desc: 'Nourish roots with sacred botanical oils.', bg: '#3B2F21', image: '/category-hair-care.png', altText: 'Roots & Leaves herbal hair care ritual products — natural Ayurvedic hair oils South India' },
+  { name: 'Wellness Ritual', slug: 'wellness-rituals', desc: 'Ancient nourishment for modern living.', bg: '#2D362E', image: '/category-wellness-care.png', altText: 'Roots & Leaves Ayurvedic wellness products — herbal bath powders and natural wellness South India' },
+  { name: 'Face Ritual', slug: 'face-rituals', desc: 'Glow through timeless Ayurvedic care.', bg: '#4A4238', image: '/category-face-care.png', altText: 'Roots & Leaves natural face care ritual — Ayurvedic herbal face products South India' },
+  { name: 'Baby Ritual', slug: 'baby-rituals', desc: 'Gentle Ayurvedic care for delicate beginnings.', bg: '#5C544A', image: '/category-baby-care.png', altText: 'Roots & Leaves gentle herbal baby care products — natural Ayurvedic baby ritual South India' },
 ]
 
 
@@ -47,10 +47,13 @@ const trustPillars = [
 ]
 
 const heroSlides = [
-  { title: "Sacred Rituals", image: "/HeroPage1_v2.png", alt: "Roots & Leaves premium herbal hair wellness — Sacred Ayurvedic rituals South India" },
-  { title: "Luminous Glow", image: "/HeroPage2_v2.png", alt: "Roots & Leaves natural hair care products — Luminous herbal glow Andhra Pradesh Telangana" },
-  { title: "Holistic Vitality", image: "/HeroPage3_v2.png", alt: "Roots & Leaves holistic Ayurvedic hair vitality — pure botanical hair oil South India" },
-  { title: "Pure Tradition", image: "/HeroPage4_v2.png", alt: "Roots & Leaves traditional South Indian herbal hair care — pure handcrafted Ayurveda" },
+  { title: "Sacred Rituals", image: "/hero-page-1_v3.png", alt: "Roots & Leaves premium herbal hair wellness — Sacred Ayurvedic rituals South India" },
+  { title: "Luminous Glow", image: "/hero-page-2_v3.png", alt: "Roots & Leaves natural hair care products — Luminous herbal glow Andhra Pradesh Telangana" },
+  { title: "Holistic Vitality", image: "/hero-page-3_v3.png", alt: "Roots & Leaves holistic Ayurvedic hair vitality — pure botanical hair oil South India" },
+  { title: "Pure Tradition", image: "/hero-page-4_v3.png", alt: "Roots & Leaves traditional South Indian herbal hair care — pure handcrafted Ayurveda" },
+  { title: "Ayurvedic Heritage", image: "/hero-page-5_v3.png", alt: "Roots & Leaves Ayurvedic Heritage" },
+  { title: "Natural Radiance", image: "/hero-page-6_v3.png", alt: "Roots & Leaves Natural Radiance" },
+  { title: "Timeless Beauty", image: "/hero-page-7_v3.png", alt: "Roots & Leaves Timeless Beauty" },
 ];
 
 export default function Home() {
