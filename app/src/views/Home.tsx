@@ -186,26 +186,22 @@ export default function Home() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-[14px] gap-y-[14px] md:gap-8">
             {ritualCategories.map((cat, idx) => (
               <motion.div key={cat.slug} {...stagger(idx * 0.1)}>
-                <Link href={`/shop?category=${cat.slug}`} className="block relative ritual-card-zoom group" style={{ backgroundColor: cat.bg }}>
+                <Link 
+                  href={`/shop?category=${cat.slug}`} 
+                  className="block relative w-full aspect-square rounded-[26px] md:rounded-[32px] overflow-hidden group shadow-[var(--shadow-lg)] transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_20px_40px_rgba(45,36,28,0.15)]" 
+                  style={{ backgroundColor: cat.bg }}
+                >
                   <Image 
                     src={cat.image} 
                     alt={cat.altText} 
                     fill
                     sizes="(max-width: 768px) 50vw, 25vw"
                     style={{ objectFit: 'cover' }}
-                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-[400ms] ease-out group-hover:scale-110" 
+                    className="absolute inset-0 w-full h-full object-cover" 
                     priority={idx < 2}
                   />
-                  <div className="absolute inset-0 ritual-card-overlay transition-opacity group-hover:opacity-80" />
-
-                  <div className="absolute inset-0 flex flex-col justify-end p-[14px] md:p-6 z-10">
-                    <h3 className="text-lg md:text-xl font-medium text-[#EADCC8] mb-0">{cat.name}</h3>
-                    <p className="hidden md:block text-[11px] text-[#EADCC8]/80 font-normal leading-relaxed" style={{ fontFamily: "'DM Sans', sans-serif" }}>{cat.desc}</p>
-                    <div className="mt-4 hidden md:flex items-center gap-2 text-[#EADCC8] text-xs uppercase tracking-widest font-semibold opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all">
-                      Enter Ritual <ArrowRight className="w-3 h-3" />
-                    </div>
-                  </div>
-
+                  {/* Screen reader only text for SEO/Accessibility */}
+                  <span className="sr-only">{cat.name} - {cat.desc}</span>
                 </Link>
               </motion.div>
             ))}
