@@ -47,13 +47,13 @@ const trustPillars = [
 ]
 
 const heroSlides = [
-  { title: "Sacred Rituals", image: "/hero-page-1_v3.png", alt: "Roots & Leaves premium herbal hair wellness — Sacred Ayurvedic rituals South India" },
-  { title: "Luminous Glow", image: "/hero-page-2_v3.png", alt: "Roots & Leaves natural hair care products — Luminous herbal glow Andhra Pradesh Telangana" },
-  { title: "Holistic Vitality", image: "/hero-page-3_v3.png", alt: "Roots & Leaves holistic Ayurvedic hair vitality — pure botanical hair oil South India" },
-  { title: "Pure Tradition", image: "/hero-page-4_v3.png", alt: "Roots & Leaves traditional South Indian herbal hair care — pure handcrafted Ayurveda" },
-  { title: "Ayurvedic Heritage", image: "/hero-page-5_v3.png", alt: "Roots & Leaves Ayurvedic Heritage" },
-  { title: "Natural Radiance", image: "/hero-page-6_v3.png", alt: "Roots & Leaves Natural Radiance" },
-  { title: "Timeless Beauty", image: "/hero-page-7_v3.png", alt: "Roots & Leaves Timeless Beauty" },
+  { title: "Sacred Rituals", image: "/hero-page-1_v4.png", alt: "Roots & Leaves premium herbal hair wellness — Sacred Ayurvedic rituals South India" },
+  { title: "Luminous Glow", image: "/hero-page-2_v4.png", alt: "Roots & Leaves natural hair care products — Luminous herbal glow Andhra Pradesh Telangana" },
+  { title: "Holistic Vitality", image: "/hero-page-3_v4.png", alt: "Roots & Leaves holistic Ayurvedic hair vitality — pure botanical hair oil South India" },
+  { title: "Pure Tradition", image: "/hero-page-4_v4.png", alt: "Roots & Leaves traditional South Indian herbal hair care — pure handcrafted Ayurveda" },
+  { title: "Ayurvedic Heritage", image: "/hero-page-5_v4.png", alt: "Roots & Leaves Ayurvedic Heritage" },
+  { title: "Natural Radiance", image: "/hero-page-6_v4.png", alt: "Roots & Leaves Natural Radiance" },
+  { title: "Timeless Beauty", image: "/hero-page-7_v4.png", alt: "Roots & Leaves Timeless Beauty" },
 ];
 
 export default function Home() {
