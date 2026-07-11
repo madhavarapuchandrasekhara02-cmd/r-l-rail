@@ -1,7 +1,7 @@
 "use client";
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Truck, Eye, CheckCircle, Search, Filter, Calendar, MapPin, Phone, User, Package, ChevronRight, ChevronDown, ChevronUp, X, ExternalLink, MoreVertical, RefreshCw, AlertCircle, Printer } from 'lucide-react'
+import { Truck, Eye, CheckCircle, Search, Filter, Calendar, MapPin, Phone, User, Package, ChevronRight, ChevronDown, ChevronUp, X, ExternalLink, MoreVertical, RefreshCw, AlertCircle, Printer, ArrowUpDown } from 'lucide-react'
 import { getPackedWeight, TARE_WEIGHT } from '@/lib/weight'
 
 const STATUS_OPTIONS = [
@@ -28,6 +28,7 @@ export default function AdminOrders() {
   const [fromOrderNum, setFromOrderNum] = useState('')
   const [toOrderNum, setToOrderNum] = useState('')
   const [filterTab, setFilterTab] = useState<'date' | 'range'>('date')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
 
   useEffect(() => {
     fetchOrders()
@@ -342,8 +343,16 @@ export default function AdminOrders() {
     return true
   })
 
+  const sortedOrders = useMemo(() => {
+    return [...filteredOrders].sort((a, b) => {
+      const dateA = new Date(a.created_at || 0).getTime()
+      const dateB = new Date(b.created_at || 0).getTime()
+      return sortOrder === 'asc' ? dateA - dateB : dateB - dateA
+    })
+  }, [filteredOrders, sortOrder])
+
   // Filter for orders that need to be prepared (Paid)
-  const prepOrders = filteredOrders.filter(o => o.status === 'Paid')
+  const prepOrders = sortedOrders.filter(o => o.status === 'Paid')
 
   // Group and count bottles across the prep orders
   const bottleAggregation = prepOrders.reduce((acc: {[key: string]: { count: number; weight: number }}, order) => {
@@ -466,6 +475,21 @@ export default function AdminOrders() {
             )}
           </div>
         </div>
+
+        {/* Sort Order Toggle */}
+        <div className="flex items-center justify-between md:justify-end gap-2.5 border-t md:border-t-0 md:border-l border-[#E5C492]/60 pt-4 md:pt-0 md:pl-4 w-full md:w-auto">
+          <div className="flex items-center gap-2">
+            <ArrowUpDown className="w-5 h-5 text-[#B37943]" />
+            <span className="text-xs font-bold text-[#4A3525] uppercase tracking-wider">Sort:</span>
+          </div>
+          <button
+            onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+            type="button"
+            className="px-4 py-2.5 bg-[#FAF9F6] border border-[#E5C492] text-[#4A3525] hover:bg-[#FAF3E8] rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all active:scale-[0.98] shadow-sm flex items-center gap-1.5"
+          >
+            {sortOrder === 'asc' ? 'Oldest' : 'Newest'}
+          </button>
+        </div>
       </div>
 
       {/* Stock Prep Aggregator */}
@@ -555,14 +579,14 @@ export default function AdminOrders() {
              <div className="w-10 h-10 border-4 border-[#B37943] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
              <p className="text-[#B37943] font-medium">Fetching orders...</p>
           </div>
-        ) : filteredOrders.length === 0 ? (
+        ) : sortedOrders.length === 0 ? (
           <div className="bg-white rounded-3xl p-10 text-center border border-[#E5C492]">
             <AlertCircle className="w-10 h-10 text-[#B37943] mx-auto mb-3 opacity-20" />
             <p className="text-lg font-bold text-[#4A3525]">No orders found</p>
             <p className="text-xs text-[#B37943]">Try adjusting your search or filters.</p>
           </div>
         ) : (
-          filteredOrders.map(order => (
+          sortedOrders.map(order => (
             <div key={order.id} className="bg-white rounded-xl border border-[#E5C492] p-3 shadow-sm active:scale-[0.98] transition-transform">
               <div className="flex justify-between items-center mb-2">
                 <div>
@@ -627,7 +651,7 @@ export default function AdminOrders() {
                     <p className="text-[#B37943] italic font-medium">Synchronizing with central archive...</p>
                   </td>
                 </tr>
-              ) : filteredOrders.length === 0 ? (
+              ) : sortedOrders.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-8 py-24 text-center">
                     <p className="text-xl font-bold text-[#4A3525] mb-1">Archive Empty</p>
@@ -635,7 +659,7 @@ export default function AdminOrders() {
                   </td>
                 </tr>
               ) : (
-                filteredOrders.map((order) => (
+                sortedOrders.map((order) => (
                   <tr key={order.id} className="group hover:bg-[#FAF9F6]/30 transition-all duration-300">
                     <td className="px-8 py-5">
                       <div className="flex flex-col">
