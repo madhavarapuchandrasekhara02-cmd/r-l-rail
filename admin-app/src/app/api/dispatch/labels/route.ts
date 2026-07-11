@@ -66,61 +66,78 @@ export async function GET(req: NextRequest) {
       return new NextResponse('Delhivery API token is not configured', { status: 500 })
     }
 
-    // Call Delhivery API
-    const delhiveryUrl = `${DELHIVERY_BASE}/api/p/packing_slip?wbns=${waybills}&pdf=true`
-    console.log('[Labels API] Fetching from Delhivery:', delhiveryUrl)
+    const fallbackUrl = new URL(`/label/batch?waybills=${waybills}`, req.url)
 
-    const response = await fetch(delhiveryUrl, {
-      headers: {
-        'Authorization': `Token ${DELHIVERY_API_TOKEN}`,
-      },
-    })
+    // Call Delhivery API with a strict 4-second timeout limit
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 4000)
 
-    if (!response.ok) {
-      const text = await response.text()
-      console.error('[Labels API] Delhivery error:', response.status, text)
-      // Return the error directly instead of falling back to custom generated labels
-      return new NextResponse(`Delhivery API Error: ${text}`, { status: response.status })
+    let response;
+    try {
+      const delhiveryUrl = `${DELHIVERY_BASE}/api/p/packing_slip?wbns=${waybills}&pdf=true`
+      console.log('[Labels API] Fetching from Delhivery:', delhiveryUrl)
+
+      response = await fetch(delhiveryUrl, {
+        headers: {
+          'Authorization': `Token ${DELHIVERY_API_TOKEN}`,
+        },
+        signal: controller.signal
+      })
+      clearTimeout(timeoutId)
+    } catch (err: any) {
+      clearTimeout(timeoutId)
+      console.error('[Labels API] Delhivery fetch timed out or failed. Redirecting to fallback.', err.message || err)
+      return NextResponse.redirect(fallbackUrl)
     }
 
-    // Delhivery API returns a JSON object with 'packages' array containing 'pdf_download_link' (base64 string)
+    if (!response.ok) {
+      console.error('[Labels API] Delhivery error status:', response.status)
+      return NextResponse.redirect(fallbackUrl)
+    }
+
     const json = await response.json()
-    
     if (!json.packages || json.packages.length === 0) {
-       console.error('[Labels API] No packages found in response:', json)
-       return new NextResponse(`Delhivery returned no packages for waybills: ${waybills}`, { status: 404 })
+       console.error('[Labels API] No packages found in response. Redirecting to fallback.')
+       return NextResponse.redirect(fallbackUrl)
     }
 
     // Create a new PDF document to merge all labels into one
     const mergedPdf = await PDFDocument.create()
-    const embeddedPages = []
+    const embeddedPages: any[] = []
 
-    for (const pkg of json.packages) {
-      if (pkg.pdf_download_link) {
-        try {
-          // Fetch the PDF from the S3 URL provided by Delhivery
-          const pdfRes = await fetch(pkg.pdf_download_link)
-          if (!pdfRes.ok) {
-            console.error(`[Labels API] Failed to fetch PDF for ${pkg.wbn} from S3. Status: ${pdfRes.status}`)
-            continue
-          }
-          const pdfBuffer = await pdfRes.arrayBuffer()
-          const pdfDoc = await PDFDocument.load(pdfBuffer)
-          
-          const pages = pdfDoc.getPages()
-          for (const p of pages) {
-            const embedded = await mergedPdf.embedPage(p)
-            embeddedPages.push(embedded)
-          }
-        } catch (err) {
-          console.error(`[Labels API] Failed to merge label for waybill ${pkg.wbn}:`, err)
+    // Fetch S3 PDFs in parallel using Promise.all to bypass sequential loop lag
+    const downloadPromises = json.packages.map(async (pkg: any) => {
+      if (!pkg.pdf_download_link) return null;
+      try {
+        const s3Controller = new AbortController()
+        const s3Timeout = setTimeout(() => s3Controller.abort(), 3000) // 3 seconds timeout per file
+
+        const pdfRes = await fetch(pkg.pdf_download_link, { signal: s3Controller.signal })
+        clearTimeout(s3Timeout)
+
+        if (!pdfRes.ok) return null;
+        const pdfBuffer = await pdfRes.arrayBuffer()
+        return await PDFDocument.load(pdfBuffer)
+      } catch (e: any) {
+        console.error(`[Labels API] S3 download failed for ${pkg.wbn}:`, e.message || e)
+        return null
+      }
+    })
+
+    const pdfDocs = await Promise.all(downloadPromises)
+
+    for (const pdfDoc of pdfDocs) {
+      if (pdfDoc) {
+        const pages = pdfDoc.getPages()
+        for (const p of pages) {
+          const embedded = await mergedPdf.embedPage(p)
+          embeddedPages.push(embedded)
         }
       }
     }
 
     if (embeddedPages.length === 0) {
-       console.error('[Labels API] No valid PDFs could be extracted. Falling back to custom label generation.')
-       const fallbackUrl = new URL(`/label/batch?waybills=${waybills}`, req.url)
+       console.error('[Labels API] No valid PDFs could be extracted. Redirecting to fallback.')
        return NextResponse.redirect(fallbackUrl)
     }
 
