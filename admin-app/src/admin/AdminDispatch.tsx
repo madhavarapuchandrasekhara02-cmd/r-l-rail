@@ -193,13 +193,11 @@ export default function AdminDispatch() {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       const token = session?.access_token || ''
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-      const downloadParam = isMobile ? '&download=true' : ''
-      const url = `/api/dispatch/labels?waybills=${waybills.join(',')}&token=${encodeURIComponent(token)}${downloadParam}`
       
-      if (isMobile) {
-        window.location.href = url
-      } else {
+      const CHUNK_SIZE = 20
+      for (let i = 0; i < waybills.length; i += CHUNK_SIZE) {
+        const chunk = waybills.slice(i, i + CHUNK_SIZE)
+        const url = `/api/dispatch/labels?waybills=${chunk.join(',')}&token=${encodeURIComponent(token)}`
         window.open(url, '_blank')
       }
     } catch (err) {
@@ -344,6 +342,36 @@ export default function AdminDispatch() {
           </button>
         ))}
       </div>
+
+      {/* Courier Serviceability Warnings */}
+      {shipmentResults?.errors && shipmentResults.errors.length > 0 && (
+        <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 mb-4 text-rose-700 relative">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
+              <AlertCircle className="w-4 h-4 text-rose-500" /> Courier Serviceability Warnings ({shipmentResults.errors.length})
+            </h4>
+            <button 
+              onClick={() => setShipmentResults(null)}
+              className="text-[10px] font-bold uppercase tracking-widest text-rose-500 hover:text-rose-700 underline cursor-pointer"
+            >
+              Dismiss
+            </button>
+          </div>
+          <ul className="space-y-1.5 text-[10px] font-sans font-semibold list-disc list-inside">
+            {shipmentResults.errors.map((err: any, idx: number) => (
+              <li key={idx}>
+                {err.orderNumber ? (
+                  <>
+                    <span className="font-bold text-rose-800">{err.orderNumber}</span>: {err.reason} — <span className="italic text-[9px] text-rose-500">Please use another courier service.</span>
+                  </>
+                ) : (
+                  err.reason
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Action Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between bg-white p-3 md:p-4 rounded-2xl border border-[#E5C492] shadow-sm sticky top-4 z-20 gap-3">

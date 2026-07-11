@@ -66,9 +66,9 @@ export async function GET(req: NextRequest) {
       return new NextResponse('Delhivery API token is not configured', { status: 500 })
     }
 
-    // Call Delhivery API with a strict 4-second timeout limit
+    // Call Delhivery API with a strict 15-second timeout limit
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 4000)
+    const timeoutId = setTimeout(() => controller.abort(), 15000)
 
     let response;
     try {
@@ -109,7 +109,7 @@ export async function GET(req: NextRequest) {
       if (!pkg.pdf_download_link) return null;
       try {
         const s3Controller = new AbortController()
-        const s3Timeout = setTimeout(() => s3Controller.abort(), 3000) // 3 seconds timeout per file
+        const s3Timeout = setTimeout(() => s3Controller.abort(), 8000) // 8 seconds timeout per file
 
         const pdfRes = await fetch(pkg.pdf_download_link, { signal: s3Controller.signal })
         clearTimeout(s3Timeout)
@@ -178,8 +178,7 @@ export async function GET(req: NextRequest) {
     const mergedPdfBytes = await mergedPdf.save()
 
     // Return the combined PDF to the browser
-    const isDownload = searchParams.get('download') === 'true'
-    const disposition = isDownload ? 'attachment' : 'inline'
+    const disposition = 'inline'
 
     return new NextResponse(Buffer.from(mergedPdfBytes), {
       headers: {
