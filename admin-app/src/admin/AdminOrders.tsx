@@ -27,6 +27,7 @@ export default function AdminOrders() {
   const [isSummaryOpen, setIsSummaryOpen] = useState(false)
   const [fromOrderNum, setFromOrderNum] = useState('')
   const [toOrderNum, setToOrderNum] = useState('')
+  const [filterTab, setFilterTab] = useState<'date' | 'range'>('date')
 
   useEffect(() => {
     fetchOrders()
@@ -375,8 +376,27 @@ export default function AdminOrders() {
       </header>
 
       {/* Controls Bar: Calendar Filters & Batch Print */}
-      <div className="bg-white border border-[#E5C492] rounded-2xl md:rounded-[2rem] p-4 md:p-5 flex flex-col md:flex-row items-center justify-between gap-5 shadow-sm">
-        <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
+      <div className="bg-white border border-[#E5C492] rounded-2xl md:rounded-[2rem] p-4 md:p-5 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-5 shadow-sm">
+        
+        {/* Toggle buttons for Mobile View only */}
+        <div className="flex border border-[#E5C492] p-1 rounded-xl bg-[#FAF9F6] md:hidden w-full">
+          <button
+            onClick={() => setFilterTab('date')}
+            type="button"
+            className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg text-center transition-all ${filterTab === 'date' ? 'bg-[#4A3525] text-white shadow-sm' : 'text-[#B37943]'}`}
+          >
+            Date Span
+          </button>
+          <button
+            onClick={() => setFilterTab('range')}
+            type="button"
+            className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg text-center transition-all ${filterTab === 'range' ? 'bg-[#4A3525] text-white shadow-sm' : 'text-[#B37943]'}`}
+          >
+            Order Range
+          </button>
+        </div>
+
+        <div className={`flex-wrap items-center gap-4 w-full md:w-auto ${filterTab === 'date' ? 'flex' : 'hidden md:flex'}`}>
           <div className="flex items-center gap-2">
             <Calendar className="w-5 h-5 text-[#B37943]" />
             <span className="text-xs font-bold text-[#4A3525] uppercase tracking-wider">Date Span:</span>
@@ -411,7 +431,7 @@ export default function AdminOrders() {
         </div>
         
         {/* Order Range Filter */}
-        <div className="flex flex-wrap items-center gap-4 w-full md:w-auto border-t md:border-t-0 md:border-l border-[#E5C492]/60 pt-4 md:pt-0 md:pl-4">
+        <div className={`flex-wrap items-center gap-4 w-full md:w-auto border-t md:border-t-0 md:border-l border-[#E5C492]/60 pt-4 md:pt-0 md:pl-4 ${filterTab === 'range' ? 'flex' : 'hidden md:flex'}`}>
           <div className="flex items-center gap-2">
             <Package className="w-5 h-5 text-[#B37943]" />
             <span className="text-xs font-bold text-[#4A3525] uppercase tracking-wider">Order Range:</span>
@@ -451,31 +471,34 @@ export default function AdminOrders() {
       {/* Stock Prep Aggregator */}
       {filteredOrders.length > 0 && (
         <div className="bg-[#FAF9F6] border border-[#E5C492] rounded-2xl sm:rounded-3xl p-3 sm:p-6 shadow-sm space-y-3 sm:space-y-4">
-          <div 
-            className="flex items-center justify-between pb-2 sm:pb-3 cursor-pointer group select-none"
-            onClick={() => setIsSummaryOpen(!isSummaryOpen)}
-          >
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              <Package className="w-4 h-4 sm:w-5 h-5 text-[#B37943]" />
-              <span className="text-[11px] sm:text-sm font-bold text-[#4A3525] uppercase tracking-wider font-sans group-hover:text-[#B37943] transition-colors">Kitchen & Stock Preparation Summary</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  generatePrepSummaryPDF()
-                }}
-                className="flex items-center gap-1 bg-[#B37943] hover:bg-[#4A3525] text-white transition-colors px-3 py-1 rounded-full text-[9px] sm:text-[10px] font-bold uppercase tracking-wider shadow-sm"
-              >
-                <Printer className="w-3 h-3" /> Download Summary PDF
-              </button>
-              <span className="text-[9px] sm:text-[10px] bg-[#B37943]/10 text-[#4A3525] font-extrabold uppercase px-2 py-0.5 sm:px-3 sm:py-1 rounded-full border border-[#E5C492]">
-                {prepOrders.length} Orders
-              </span>
-              <div className="text-[#B37943] group-hover:text-[#4A3525] transition-colors">
-                {isSummaryOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 sm:pb-3 border-b border-[#E5C492]/30 sm:border-b-0">
+            <div 
+              className="flex items-center justify-between sm:justify-start gap-2.5 cursor-pointer group select-none flex-1"
+              onClick={() => setIsSummaryOpen(!isSummaryOpen)}
+            >
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <Package className="w-4 h-4 sm:w-5 h-5 text-[#B37943]" />
+                <span className="text-[11px] sm:text-sm font-bold text-[#4A3525] uppercase tracking-wider font-sans group-hover:text-[#B37943] transition-colors">Kitchen & Stock Preparation Summary</span>
+              </div>
+              <div className="flex items-center gap-2 sm:ml-4">
+                <span className="text-[9px] sm:text-[10px] bg-[#B37943]/10 text-[#4A3525] font-extrabold uppercase px-2 py-0.5 sm:px-3 sm:py-1 rounded-full border border-[#E5C492]">
+                  {prepOrders.length} Orders
+                </span>
+                <div className="text-[#B37943] group-hover:text-[#4A3525] transition-colors">
+                  {isSummaryOpen ? <ChevronUp className="w-4 h-4 sm:w-5 h-5" /> : <ChevronDown className="w-4 h-4 sm:w-5 h-5" />}
+                </div>
               </div>
             </div>
+            
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                generatePrepSummaryPDF()
+              }}
+              className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-[#B37943] hover:bg-[#4A3525] text-white transition-all px-4 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest shadow-sm active:scale-[0.98]"
+            >
+              <Printer className="w-3.5 h-3.5" /> Summary PDF
+            </button>
           </div>
           
           {isSummaryOpen && (
