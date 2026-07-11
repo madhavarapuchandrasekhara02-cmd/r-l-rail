@@ -57,6 +57,12 @@ export default function AdminDispatch() {
   const [rangeModalFromId, setRangeModalFromId] = useState('')
   const [rangeModalToId, setRangeModalToId] = useState('')
 
+  // Manual dispatch modal states
+  const [showManualDispatchModal, setShowManualDispatchModal] = useState(false)
+  const [manualDispatchOrderId, setManualDispatchOrderId] = useState<string | null>(null)
+  const [manualDispatchOrderNumber, setManualDispatchOrderNumber] = useState<string | null>(null)
+  const [manualDispatchTracking, setManualDispatchTracking] = useState('')
+
   const generateLabelsMutation = trpc.dispatch.generateLabels.useMutation()
   const dispatchOrdersMutation = trpc.dispatch.dispatchOrders.useMutation()
   const schedulePickupMutation = trpc.dispatch.schedulePickup.useMutation()
@@ -218,17 +224,24 @@ export default function AdminDispatch() {
 
   const dispatchViaManualCourierMutation = trpc.dispatch.dispatchViaManualCourier.useMutation()
 
-  const handleAssignToManual = async (orderId: string, orderNumber: string) => {
-    const tracking = prompt(`Enter tracking number for ${orderNumber} (Leave blank to generate default):`)
-    if (tracking === null) return // cancelled
-    
-    const loadingToastId = toast.loading(`Dispatching ${orderNumber} via manual courier...`)
+  const handleAssignToManual = (orderId: string, orderNumber: string) => {
+    setManualDispatchOrderId(orderId)
+    setManualDispatchOrderNumber(orderNumber)
+    setManualDispatchTracking('')
+    setShowManualDispatchModal(true)
+  }
+
+  const handleConfirmManualDispatch = async () => {
+    if (!manualDispatchOrderId || !manualDispatchOrderNumber) return
+
+    const loadingToastId = toast.loading(`Dispatching ${manualDispatchOrderNumber} via manual courier...`)
     try {
       const res = await dispatchViaManualCourierMutation.mutateAsync({ 
-        orderId, 
-        waybill: tracking || undefined 
+        orderId: manualDispatchOrderId, 
+        waybill: manualDispatchTracking.trim() || undefined 
       })
       loadData()
+      setShowManualDispatchModal(false)
       if (res.success) {
         toast.success(`Dispatched via manual courier with waybill: ${res.waybill}`, { id: loadingToastId })
       } else {
@@ -901,6 +914,56 @@ export default function AdminDispatch() {
                   className="flex-1 h-10 bg-[#4A3525] text-white hover:bg-[#32241b] rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all active:scale-[0.98] cursor-pointer"
                 >
                   Download
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manual Dispatch Modal */}
+      {showManualDispatchModal && (
+        <div className="fixed inset-0 bg-[#4A3525]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden border border-[#E5C492] animate-in zoom-in-95 duration-200">
+            <div className="p-5 bg-[#FAF9F6] border-b border-[#E5C492] flex items-center justify-between">
+              <h3 className="font-serif text-[#4A3525] text-lg font-bold">Manual Dispatch</h3>
+              <button 
+                onClick={() => setShowManualDispatchModal(false)} 
+                className="p-1.5 hover:bg-white rounded-xl transition-colors cursor-pointer text-[#4A3525]"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            
+            <div className="p-5 space-y-4">
+              <p className="text-xs text-[#8B7355] leading-relaxed">
+                Enter the tracking number for order <strong className="text-[#4A3525]">{manualDispatchOrderNumber}</strong>. Leave blank to generate a default manual dispatch code.
+              </p>
+              
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[10px] font-bold text-[#B37943] uppercase tracking-widest font-sans">Tracking Number:</span>
+                <input
+                  type="text"
+                  placeholder="e.g. DTDC12345678"
+                  value={manualDispatchTracking}
+                  onChange={e => setManualDispatchTracking(e.target.value)}
+                  className="w-full h-10 px-3 bg-[#FAF9F6] border border-[#E5C492] rounded-xl text-xs outline-none text-[#4A3525] font-semibold"
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-2.5 pt-3 border-t border-[#FAF3E8]">
+                <button
+                  onClick={() => setShowManualDispatchModal(false)}
+                  className="flex-1 h-10 bg-white border border-[#E5C492] text-[#4A3525] hover:bg-[#FAF9F6] rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all active:scale-[0.98] cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmManualDispatch}
+                  className="flex-1 h-10 bg-[#4A3525] text-white hover:bg-[#32241b] rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all active:scale-[0.98] cursor-pointer"
+                >
+                  Dispatch
                 </button>
               </div>
             </div>

@@ -29,10 +29,11 @@ export default function TrackOrder() {
   // Construct queries for trpc live shipment tracking, enabled if waybill exists
   const waybill = order?.shipments?.[0]?.waybill || ''
   const isDelivered = order?.status === 'Delivered'
+  const isManual = waybill.startsWith('MANUAL-') || order?.shipments?.[0]?.carrier_name === 'Manual'
 
   const { data: trackingData, isLoading: trackingLoading } = trpc.shipping.trackShipment.useQuery(
     { waybill },
-    { enabled: !!waybill }
+    { enabled: !!waybill && !isManual }
   )
 
   // Calculate active steps for 8-node elegant timeline
@@ -326,8 +327,35 @@ export default function TrackOrder() {
                   </div>
                 </div>
 
+                {/* Alternative Courier Message */}
+                {waybill && isManual && (
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.95 }} 
+                    animate={{ opacity: 1, scale: 1 }} 
+                    className="bg-[#FAF9F6] rounded-[32px] border border-[#E5C492]/40 shadow-xl p-8 md:p-10 space-y-4"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-[#B37943]/10 flex items-center justify-center text-[#B37943] shrink-0">
+                        <Truck className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg text-[#4A3525] font-serif font-bold">Alternative Courier Dispatch</h3>
+                        <p className="text-xs text-[#8B7355] leading-relaxed mt-2 font-medium">
+                          As Delhivery does not deliver to your current address, we are using another courier partner, so the order will arrive within 5 to 6 days.
+                        </p>
+                        {waybill && !waybill.startsWith('MANUAL-') && (
+                          <div className="mt-3 flex items-center gap-2">
+                            <span className="text-[10px] text-[#B37943] font-bold uppercase tracking-wider">Tracking Reference:</span>
+                            <span className="text-[11px] font-mono font-bold text-[#4A3525] bg-[#FAF3E8] px-2 py-1 rounded select-all">{waybill}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
                 {/* Delhivery One Live Tracking Scans */}
-                {waybill && (
+                {waybill && !isManual && (
                   <motion.div 
                     initial={{ opacity: 0, scale: 0.95 }} 
                     animate={{ opacity: 1, scale: 1 }} 

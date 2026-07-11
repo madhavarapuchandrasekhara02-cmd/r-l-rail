@@ -323,6 +323,7 @@ export const dispatchRouter = createRouter({
             waybill,
             tracking_status: 'Shipped',
             tracking_url: null,
+            carrier_name: 'Manual',
             shipped_at: new Date().toISOString()
           })
 
@@ -361,15 +362,15 @@ export const dispatchRouter = createRouter({
     }),
 
   getRecentShipments: adminQuery.query(async () => {
-    // Background simulation: mark manual shipments older than 5 days as Delivered
+    // Background simulation: mark manual shipments older than 6 days as Delivered
     try {
       const cutoffDate = new Date()
-      cutoffDate.setDate(cutoffDate.getDate() - 5)
+      cutoffDate.setDate(cutoffDate.getDate() - 6)
 
       const { data: expiredShipments } = await supabaseAdmin
         .from('shipments')
         .select('order_id')
-        .like('waybill', 'MANUAL-%')
+        .or('waybill.ilike.MANUAL-%,carrier_name.eq.Manual')
         .lt('shipped_at', cutoffDate.toISOString())
 
       if (expiredShipments && expiredShipments.length > 0) {
