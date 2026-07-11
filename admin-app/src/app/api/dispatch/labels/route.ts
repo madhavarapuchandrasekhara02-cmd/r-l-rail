@@ -66,8 +66,6 @@ export async function GET(req: NextRequest) {
       return new NextResponse('Delhivery API token is not configured', { status: 500 })
     }
 
-    const fallbackUrl = new URL(`/label/batch?waybills=${waybills}`, req.url)
-
     // Call Delhivery API with a strict 4-second timeout limit
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 4000)
@@ -86,19 +84,20 @@ export async function GET(req: NextRequest) {
       clearTimeout(timeoutId)
     } catch (err: any) {
       clearTimeout(timeoutId)
-      console.error('[Labels API] Delhivery fetch timed out or failed. Redirecting to fallback.', err.message || err)
-      return NextResponse.redirect(fallbackUrl)
+      console.error('[Labels API] Delhivery fetch timed out or failed:', err.message || err)
+      return new NextResponse('Error: Fetching labels from Delhivery API timed out or failed. Please try again.', { status: 504 })
     }
 
     if (!response.ok) {
       console.error('[Labels API] Delhivery error status:', response.status)
-      return NextResponse.redirect(fallbackUrl)
+      const text = await response.text().catch(() => '')
+      return new NextResponse(`Error: Delhivery API returned error status ${response.status}. Detail: ${text}`, { status: response.status })
     }
 
     const json = await response.json()
     if (!json.packages || json.packages.length === 0) {
-       console.error('[Labels API] No packages found in response. Redirecting to fallback.')
-       return NextResponse.redirect(fallbackUrl)
+       console.error('[Labels API] No packages found in Delhivery response.')
+       return new NextResponse('Error: Delhivery returned no package information for the requested waybills. Verify that the tracking IDs exist and are active on your Delhivery account.', { status: 404 })
     }
 
     // Create a new PDF document to merge all labels into one
@@ -133,10 +132,10 @@ export async function GET(req: NextRequest) {
           const width = p.getWidth()
           const height = p.getHeight()
 
-          // If the page is A4 size (representing a full page with a tiny label in top-left),
-          // crop it to the top-left quadrant (approx 297x421 pt) to extract the actual 4x6 label.
+          // If the page is A4 size (representing a full page with a 4x6 label in the center),
+          // crop it to the exact centered quadrant (153.5 pt x, 205 pt y, 288 pt width, 432 pt height)
           if (width > 500 && height > 700) {
-            p.setCropBox(0, height / 2, width / 2, height / 2)
+            p.setCropBox(153.5, 205, 288, 432)
           }
 
           const embedded = await mergedPdf.embedPage(p)
@@ -146,8 +145,8 @@ export async function GET(req: NextRequest) {
     }
 
     if (embeddedPages.length === 0) {
-       console.error('[Labels API] No valid PDFs could be extracted. Redirecting to fallback.')
-       return NextResponse.redirect(fallbackUrl)
+       console.error('[Labels API] No valid PDFs could be extracted from Delhivery.')
+       return new NextResponse('Error: No valid PDF files could be downloaded or parsed from Delhivery S3 links. Please verify that your waybill documents have been successfully generated.', { status: 502 })
     }
 
     // A4 dimensions in points (72 points per inch)
