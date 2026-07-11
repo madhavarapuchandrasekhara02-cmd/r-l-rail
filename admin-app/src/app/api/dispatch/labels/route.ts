@@ -8,6 +8,11 @@ const DELHIVERY_API_TOKEN = env.DELHIVERY_API_TOKEN
 const DELHIVERY_BASE = env.DELHIVERY_BASE_URL
 
 function extractToken(req: NextRequest): string {
+  // Fallback to query token for mobile window.open contexts
+  const { searchParams } = new URL(req.url)
+  const queryToken = searchParams.get('token')
+  if (queryToken) return queryToken
+
   const authHeader = req.headers.get("authorization");
   if (authHeader && authHeader.startsWith("Bearer ")) {
     return authHeader.substring(7);
@@ -157,10 +162,13 @@ export async function GET(req: NextRequest) {
     const mergedPdfBytes = await mergedPdf.save()
 
     // Return the combined PDF to the browser
+    const isDownload = searchParams.get('download') === 'true'
+    const disposition = isDownload ? 'attachment' : 'inline'
+
     return new NextResponse(Buffer.from(mergedPdfBytes), {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `inline; filename="labels-${waybills.split(',')[0]}.pdf"`,
+        'Content-Disposition': `${disposition}; filename="labels-${waybills.split(',')[0]}.pdf"`,
       },
     })
   } catch (error: any) {

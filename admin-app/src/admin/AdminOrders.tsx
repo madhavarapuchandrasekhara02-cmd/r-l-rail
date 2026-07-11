@@ -30,6 +30,25 @@ export default function AdminOrders() {
     fetchOrders()
   }, [statusFilter, startDate, endDate])
 
+  // Helper to securely trigger PDF downloads bypassing popup blockers & cookie limits on mobile
+  const triggerLabelDownload = async (waybills: string[]) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token || ''
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+      const downloadParam = isMobile ? '&download=true' : ''
+      const url = `/api/dispatch/labels?waybills=${waybills.join(',')}&token=${encodeURIComponent(token)}${downloadParam}`
+      
+      if (isMobile) {
+        window.location.href = url
+      } else {
+        window.open(url, '_blank')
+      }
+    } catch (err) {
+      console.error('Error triggering download:', err)
+    }
+  }
+
   async function fetchOrders() {
     setLoading(true)
     try {
@@ -506,14 +525,12 @@ export default function AdminOrders() {
                        </div>
                     </div>
                     <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
-                      <a 
-                        href={`/api/dispatch/labels?waybills=${selectedOrder.shipments[0].waybill}`}
-                        target="_blank" 
-                        rel="noreferrer"
-                        className="flex-1 sm:flex-initial px-3 sm:px-6 py-2.5 sm:py-4 bg-[#B37943] text-white font-bold rounded-lg sm:rounded-2xl hover:bg-[#96612F] transition-all flex items-center justify-center gap-2 uppercase tracking-widest text-[9px] sm:text-[10px] shadow-sm flex items-center"
+                      <button 
+                        onClick={() => triggerLabelDownload([selectedOrder.shipments[0].waybill])}
+                        className="flex-1 sm:flex-initial px-3 sm:px-6 py-2.5 sm:py-4 bg-[#B37943] text-white font-bold rounded-lg sm:rounded-2xl hover:bg-[#96612F] transition-all flex items-center justify-center gap-2 uppercase tracking-widest text-[9px] sm:text-[10px] shadow-sm flex items-center cursor-pointer"
                       >
                         <Printer className="w-4 h-4" /> Print
-                      </a>
+                      </button>
                       {selectedOrder.shipments[0].tracking_url && (
                         <a 
                           href={selectedOrder.shipments[0].tracking_url} 

@@ -132,6 +132,26 @@ export default function AdminDispatch() {
     setSelectedOrderIds(prev => prev.length === currentList.length ? [] : currentList.map(o => o.id))
   }
 
+  // Helper to securely trigger PDF downloads bypassing popup blockers & cookie limits on mobile
+  const triggerLabelDownload = async (waybills: string[]) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token || ''
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+      const downloadParam = isMobile ? '&download=true' : ''
+      const url = `/api/dispatch/labels?waybills=${waybills.join(',')}&token=${encodeURIComponent(token)}${downloadParam}`
+      
+      if (isMobile) {
+        window.location.href = url
+      } else {
+        window.open(url, '_blank')
+      }
+    } catch (err) {
+      console.error('Error triggering download:', err)
+      toast.error('Failed to prepare label download')
+    }
+  }
+
   // Handle Label Generation (Phase 1)
   const handleGenerateLabels = async () => {
     if (selectedOrderIds.length === 0) { toast.error('Select orders to generate labels'); return }
@@ -152,7 +172,7 @@ export default function AdminDispatch() {
         toast.success(`Successfully generated ${res.packages?.length || 0} labels!`, { id: loadingToastId })
         // Optional: Auto download labels if all succeeded
         if (res.waybills && res.waybills.length > 0) {
-          window.open(`/api/dispatch/labels?waybills=${res.waybills.join(',')}`, '_blank')
+          triggerLabelDownload(res.waybills)
         }
       }
     } catch (err: any) {
@@ -190,7 +210,7 @@ export default function AdminDispatch() {
         return
       }
       toast.success('Downloading batch PDF...', { id: toastId })
-      window.open(`/api/dispatch/labels?waybills=${waybills.join(',')}`, '_blank')
+      triggerLabelDownload(waybills)
     } catch (err) {
       toast.error('Failed to fetch labels', { id: toastId })
     }
@@ -388,7 +408,7 @@ export default function AdminDispatch() {
                       {o.shipments?.[0]?.waybill ? (
                         <div className="flex flex-col items-end gap-1">
                           <span className="font-mono text-[9px] text-[#B37943] font-bold">AWB: {o.shipments[0].waybill}</span>
-                          <a href={`/api/dispatch/labels?waybills=${o.shipments[0].waybill}`} target="_blank" className="text-[9px] text-[#4A3525] hover:text-[#B37943] uppercase tracking-widest font-bold underline">Download</a>
+                          <button onClick={() => triggerLabelDownload([o.shipments[0].waybill])} className="text-[9px] text-[#4A3525] hover:text-[#B37943] uppercase tracking-widest font-bold underline cursor-pointer">Download</button>
                         </div>
                       ) : (
                         <span className="text-[9px] text-gray-400 font-sans uppercase tracking-widest">None</span>

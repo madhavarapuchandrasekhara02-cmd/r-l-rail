@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { trpc } from '@/providers/trpc'
+import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import {
   FileText,
@@ -38,10 +39,30 @@ export default function AdminLabels() {
     setSelectedWaybills(prev => prev.length === filteredShipments.length ? [] : filteredShipments.map((s: any) => s.waybill))
   }
 
+  // Helper to securely trigger PDF downloads bypassing popup blockers & cookie limits on mobile
+  const triggerLabelDownload = async (waybills: string[]) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token || ''
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+      const downloadParam = isMobile ? '&download=true' : ''
+      const url = `/api/dispatch/labels?waybills=${waybills.join(',')}&token=${encodeURIComponent(token)}${downloadParam}`
+      
+      if (isMobile) {
+        window.location.href = url
+      } else {
+        window.open(url, '_blank')
+      }
+    } catch (err) {
+      console.error('Error triggering download:', err)
+      toast.error('Failed to prepare label download')
+    }
+  }
+
   const handleDownloadBatch = () => {
     if (selectedWaybills.length === 0) return toast.error('Select labels to download')
     toast.success(`Downloading ${selectedWaybills.length} labels...`)
-    window.open(`/api/dispatch/labels?waybills=${selectedWaybills.join(',')}`, '_blank')
+    triggerLabelDownload(selectedWaybills)
   }
 
   return (
@@ -128,13 +149,12 @@ export default function AdminLabels() {
                       </span>
                     </td>
                     <td className="py-4 px-4 text-right">
-                      <a 
-                        href={`/api/dispatch/labels?waybills=${s.waybill}`} 
-                        target="_blank"
-                        className="inline-flex items-center gap-1 h-8 px-3 bg-white border border-[#E5C492] hover:bg-[#FAF3E8] rounded-lg text-[9px] font-sans font-bold uppercase tracking-widest text-[#4A3525] transition-all"
+                      <button 
+                        onClick={() => triggerLabelDownload([s.waybill])}
+                        className="inline-flex items-center gap-1 h-8 px-3 bg-white border border-[#E5C492] hover:bg-[#FAF3E8] rounded-lg text-[9px] font-sans font-bold uppercase tracking-widest text-[#4A3525] transition-all cursor-pointer"
                       >
                         <Download className="w-3 h-3 text-[#B37943]" /> PDF
-                      </a>
+                      </button>
                     </td>
                   </tr>
                 ))}

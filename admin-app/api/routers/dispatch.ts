@@ -173,6 +173,7 @@ export const dispatchRouter = createRouter({
 
         // 4. Process response packages
         const successfulWaybills: string[] = []
+        const dbShipments: any[] = []
 
         if (delhiveryResponse?.packages) {
           for (const pkg of delhiveryResponse.packages) {
@@ -184,49 +185,54 @@ export const dispatchRouter = createRouter({
 
             if (pkg.status === 'Success') {
               const waybill = pkg.waybill
-              successfulWaybills.push(waybill)
+              dbShipments.push({
+                order_id: correspondingOrder.id,
+                waybill,
+                tracking_url: `https://www.delhivery.com/track/package/${waybill}`,
+                shipped_at: new Date().toISOString()
+              })
 
+              successfulWaybills.push(waybill)
               successfulPackages.push({
                 orderId: correspondingOrder.id,
                 orderNumber: pkg.refnum,
                 waybill,
                 status: 'Success',
               })
-
-              // First delete any failed/duplicate shipment record for this order
-              await supabaseAdmin
-                .from('shipments')
-                .delete()
-                .eq('order_id', correspondingOrder.id)
-
-              // Insert the fresh shipment record
-              await supabaseAdmin
-                .from('shipments')
-                .insert({
-                  order_id: correspondingOrder.id,
-                  waybill,
-                  tracking_status: 'Manifested',
-                  tracking_url: `https://www.delhivery.com/track/package/${waybill}`,
-                  shipped_at: new Date().toISOString(),
-                })
-
-              // Update order status to Packed (Awaiting Courier)
-              const { error: updateError } = await supabaseAdmin
-                .from('orders')
-                .update({ status: 'Packed', updated_at: new Date().toISOString() })
-                .eq('id', correspondingOrder.id)
-                
-              if (updateError) {
-                console.error(`[Dispatch] Failed to update order status for ${correspondingOrder.id}:`, updateError)
-                errors.push({ orderId: correspondingOrder.id, orderNumber: pkg.refnum, reason: 'Failed to update order status to Packed in DB' })
-              }
-
             } else {
               errors.push({
                 orderId: correspondingOrder.id,
                 orderNumber: pkg.refnum,
                 reason: pkg.remarks || pkg.remark || 'Delhivery rejected this shipment',
               })
+            }
+          }
+
+          // Atomically write shipments and update order statuses in a single transaction
+          if (dbShipments.length > 0) {
+            console.log(`[Dispatch] Writing ${dbShipments.length} shipments and updating orders atomically...`)
+            const { data: rpcRes, error: rpcErr } = await supabaseAdmin.rpc(
+              'save_shipments_and_update_status',
+              { p_shipments: dbShipments }
+            )
+
+            if (rpcErr || !rpcRes || (rpcRes as any).success === false) {
+              const errMsg = rpcErr?.message || (rpcRes as any)?.error || 'Unknown transaction error'
+              console.error('[Dispatch] save_shipments_and_update_status transactional error:', errMsg)
+              
+              // Move all successful packages back to errors array since they rolled back
+              for (const pkg of dbShipments) {
+                const correspondingOrder = orderMap[pkg.refnum] || { order_number: 'Unknown' }
+                errors.push({
+                  orderId: pkg.order_id,
+                  orderNumber: correspondingOrder.order_number,
+                  reason: `Database transaction rolled back: ${errMsg}`
+                })
+              }
+              successfulPackages.length = 0
+              successfulWaybills.length = 0
+            } else {
+              console.log(`[Dispatch] Database transaction completed. Updated ${(rpcRes as any).updated_count} records.`)
             }
           }
         } else if (delhiveryResponse?.rmk) {
