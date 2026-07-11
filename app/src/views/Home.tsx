@@ -94,13 +94,19 @@ export default function Home() {
         const { data: products, error } = await supabase
           .from('products')
           .select(`*, product_variants(*)`)
-          .order('display_order', { ascending: true, nullsFirst: false })
+          .order('display_order', { ascending: true })
           .order('created_at', { ascending: false })
           .limit(8)
-        if (error) { console.error('Supabase error:', error); setLoading(false); return }
+        if (error) { 
+          console.error('Supabase error:', error.message || error)
+          setLoading(false)
+          return 
+        }
         const mapped = (products || []).map((p: any) => ({ ...p, variants: p.product_variants || [] }))
         setFeaturedProducts(mapped)
-      } catch (err) { console.error('Fetch error:', err) }
+      } catch (err: any) { 
+        console.error('Fetch error:', err.message || err) 
+      }
       finally { setLoading(false) }
     }
     fetchProducts()
