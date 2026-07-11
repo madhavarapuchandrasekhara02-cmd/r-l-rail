@@ -3,6 +3,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { trpc } from '@/providers/trpc'
 import { getPackedWeight } from '@/lib/weight'
+import { generateAlternativeCourierPDF } from '@/lib/alternative_pdf'
 import { toast } from 'sonner'
 import { jsPDF } from 'jspdf'
 import {
@@ -204,6 +205,69 @@ export default function AdminDispatch() {
       console.error('Error triggering download:', err)
       toast.error('Failed to prepare label download')
     }
+  }
+
+  const dispatchViaManualCourierMutation = trpc.dispatch.dispatchViaManualCourier.useMutation()
+
+  const handleAssignToManual = async (orderId: string, orderNumber: string) => {
+    const tracking = prompt(`Enter tracking number for ${orderNumber} (Leave blank to generate default):`)
+    if (tracking === null) return // cancelled
+    
+    const loadingToastId = toast.loading(`Dispatching ${orderNumber} via manual courier...`)
+    try {
+      const res = await dispatchViaManualCourierMutation.mutateAsync({ 
+        orderId, 
+        waybill: tracking || undefined 
+      })
+      loadData()
+      if (res.success) {
+        toast.success(`Dispatched via manual courier with waybill: ${res.waybill}`, { id: loadingToastId })
+      } else {
+        toast.error(res.error || 'Failed to dispatch', { id: loadingToastId })
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to dispatch', { id: loadingToastId })
+    }
+  }
+
+  const handlePrintUnserviceablePDF = () => {
+    const unserviceable = actionOrders.filter(o => o.shipments?.[0]?.waybill === 'UNSERVICEABLE')
+    if (unserviceable.length === 0) {
+      toast.error('No unserviceable orders found.')
+      return
+    }
+    const doc = generateAlternativeCourierPDF(unserviceable)
+    doc.save(`unserviceable-orders-${new Date().toISOString().split('T')[0]}.pdf`)
+    toast.success(`Downloaded layout sheet for ${unserviceable.length} unserviceable orders!`)
+  }
+
+  const handlePrintRangePDF = () => {
+    const fromVal = prompt("Enter From Order Number (e.g. 54):")
+    if (!fromVal) return
+    const toVal = prompt("Enter To Order Number (e.g. 65):")
+    if (!toVal) return
+
+    const start = Math.min(parseInt(fromVal, 10), parseInt(toVal, 10))
+    const end = Math.max(parseInt(fromVal, 10), parseInt(toVal, 10))
+
+    if (isNaN(start) || isNaN(end)) {
+      toast.error("Invalid range numbers entered.")
+      return
+    }
+
+    const matches = actionOrders.filter(o => {
+      const oNum = parseInt(o.order_number?.replace(/[^0-9]/g, '') || '0', 10)
+      return oNum >= start && oNum <= end
+    })
+
+    if (matches.length === 0) {
+      toast.error("No orders found in that range under Action Required.")
+      return
+    }
+
+    const doc = generateAlternativeCourierPDF(matches)
+    doc.save(`range-orders-${start}-to-${end}.pdf`)
+    toast.success(`Downloaded layout sheet for ${matches.length} orders!`)
   }
 
   // Handle Label Generation (Phase 1)
@@ -459,6 +523,23 @@ export default function AdminDispatch() {
           >
             <FileText className="w-3.5 h-3.5 text-[#B37943]" /> PDF Labels
           </button>
+          
+          <div className="relative flex items-center flex-1 sm:flex-none">
+            <select
+              onChange={(e) => {
+                const val = e.target.value
+                if (val === 'unserviceable') handlePrintUnserviceablePDF()
+                if (val === 'range') handlePrintRangePDF()
+                e.target.value = '' // Reset selection
+              }}
+              defaultValue=""
+              className="h-9 px-4 bg-white border border-[#E5C492] text-[#4A3525] rounded-xl text-[10px] font-sans font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center outline-none focus:ring-1 focus:ring-[#B37943]/20"
+            >
+              <option value="" disabled>Alternative Courier</option>
+              <option value="unserviceable">Print Unserviceable</option>
+              <option value="range">Print Range</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -473,7 +554,7 @@ export default function AdminDispatch() {
               <div 
                 key={o.id} 
                 onClick={() => toggleOrder(o.id)}
-                className={`p-3 sm:p-4 flex items-start gap-3 hover:bg-[#FAF9F6]/20 transition-colors cursor-pointer ${selectedOrderIds.includes(o.id) ? 'bg-[#FAF3E8]/35' : ''}`}
+                className={`p-3 sm:p-4 flex items-start gap-3 hover:bg-[#FAF9F6]/20 transition-colors cursor-pointer border ${o.shipments?.[0]?.waybill === 'UNSERVICEABLE' ? 'border-rose-400 bg-rose-50/20' : 'border-transparent'} ${selectedOrderIds.includes(o.id) ? 'bg-[#FAF3E8]/35' : ''}`}
               >
                 <input 
                   type="checkbox" 
@@ -492,7 +573,19 @@ export default function AdminDispatch() {
                   <div className="text-[10px] text-[#4A3525] font-semibold mt-1 truncate">{o.customer_name}</div>
                   <div className="text-[10px] text-[#7B6856] mt-0.5 break-words whitespace-normal leading-relaxed">{o.address}, {o.city} - {o.pincode}</div>
                   {o.shipments?.[0]?.waybill && (
-                    <div className="mt-2 text-[9px] font-mono font-bold bg-[#FAF9F6] border border-[#E5C492] px-2 py-1 rounded-lg text-[#B37943] inline-block">AWB: {o.shipments[0].waybill}</div>
+                    <div className="flex items-center justify-between mt-2 flex-wrap gap-2">
+                      <div className={`text-[9px] font-mono font-bold px-2 py-1 rounded-lg border ${o.shipments[0].waybill === 'UNSERVICEABLE' ? 'bg-rose-100 border-rose-200 text-rose-700' : 'bg-[#FAF9F6] border-[#E5C492] text-[#B37943]'}`}>
+                        {o.shipments[0].waybill === 'UNSERVICEABLE' ? '⚠️ UNSERVICEABLE' : `AWB: ${o.shipments[0].waybill}`}
+                      </div>
+                      {o.shipments[0].waybill === 'UNSERVICEABLE' && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleAssignToManual(o.id, o.order_number) }}
+                          className="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[9px] font-sans font-bold uppercase tracking-wider active:scale-[0.98] transition-all cursor-pointer flex items-center gap-1 shrink-0 ml-auto"
+                        >
+                          Dispatch (Manual)
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
@@ -517,7 +610,7 @@ export default function AdminDispatch() {
                   </tr>
                 )}
                 {currentList.map(o => (
-                  <tr key={o.id} className="border-b border-[#FAF3E8] hover:bg-[#FAF9F6]/30 text-xs text-[#4A3525] transition-colors">
+                  <tr key={o.id} className={`border-b border-[#FAF3E8] hover:bg-[#FAF9F6]/30 text-xs text-[#4A3525] transition-colors ${o.shipments?.[0]?.waybill === 'UNSERVICEABLE' ? 'bg-rose-50/20' : ''}`}>
                     <td className="py-4 px-5 text-center">
                       <input type="checkbox" checked={selectedOrderIds.includes(o.id)} onChange={() => toggleOrder(o.id)} className="rounded border-[#E5C492] text-[#4A3525] focus:ring-[#4A3525] cursor-pointer" />
                     </td>
@@ -543,8 +636,22 @@ export default function AdminDispatch() {
                     <td className="py-4 px-4 text-right">
                       {o.shipments?.[0]?.waybill ? (
                         <div className="flex flex-col items-end gap-1">
-                          <span className="font-mono text-[9px] text-[#B37943] font-bold">AWB: {o.shipments[0].waybill}</span>
-                          <button onClick={() => triggerLabelDownload([o.shipments[0].waybill])} className="text-[9px] text-[#4A3525] hover:text-[#B37943] uppercase tracking-widest font-bold underline cursor-pointer">Download</button>
+                          {o.shipments[0].waybill === 'UNSERVICEABLE' ? (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[9px] font-sans font-bold uppercase tracking-wider px-2 py-1 rounded border bg-rose-50 border-rose-100 text-rose-700">⚠️ Unserviceable</span>
+                              <button
+                                onClick={() => handleAssignToManual(o.id, o.order_number)}
+                                className="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[9px] font-sans font-bold uppercase tracking-wider active:scale-[0.98] transition-all cursor-pointer flex items-center gap-1"
+                              >
+                                Dispatch (Manual)
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <span className="font-mono text-[9px] text-[#B37943] font-bold">AWB: {o.shipments[0].waybill}</span>
+                              <button onClick={() => triggerLabelDownload([o.shipments[0].waybill])} className="text-[9px] text-[#4A3525] hover:text-[#B37943] uppercase tracking-widest font-bold underline cursor-pointer">Download</button>
+                            </>
+                          )}
                         </div>
                       ) : (
                         <span className="text-[9px] text-gray-400 font-sans uppercase tracking-widest">None</span>

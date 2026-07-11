@@ -197,11 +197,28 @@ export const dispatchRouter = createRouter({
                 status: 'Success',
               })
             } else {
+              const reason = pkg.remarks || pkg.remark || 'Delhivery rejected this shipment'
               errors.push({
                 orderId: correspondingOrder.id,
                 orderNumber: pkg.refnum,
-                reason: pkg.remarks || pkg.remark || 'Delhivery rejected this shipment',
+                reason,
               })
+
+              // Persist unserviceable state directly in the database
+              await supabaseAdmin
+                .from('shipments')
+                .delete()
+                .eq('order_id', correspondingOrder.id)
+              
+              await supabaseAdmin
+                .from('shipments')
+                .insert({
+                  order_id: correspondingOrder.id,
+                  waybill: 'UNSERVICEABLE',
+                  tracking_status: 'Pincode not serviceable',
+                  tracking_url: null,
+                  shipped_at: new Date().toISOString()
+                })
             }
           }
 
@@ -272,6 +289,63 @@ export const dispatchRouter = createRouter({
       }
     }),
 
+  dispatchViaManualCourier: adminMutation
+    .input(
+      z.object({
+        orderId: z.string().uuid(),
+        waybill: z.string().trim().max(50).optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      try {
+        const { data: order, error: orderErr } = await supabaseAdmin
+          .from('orders')
+          .select('order_number')
+          .eq('id', input.orderId)
+          .single()
+
+        if (orderErr || !order) throw new Error('Order not found')
+
+        // 1. Delete any temporary unserviceable tagging shipments
+        await supabaseAdmin
+          .from('shipments')
+          .delete()
+          .eq('order_id', input.orderId)
+          .eq('waybill', 'UNSERVICEABLE')
+
+        const waybill = input.waybill?.trim() || `MANUAL-${order.order_number}`
+
+        // 2. Insert manual courier shipment record
+        const { error: shipErr } = await supabaseAdmin
+          .from('shipments')
+          .insert({
+            order_id: input.orderId,
+            waybill,
+            tracking_status: 'Shipped',
+            tracking_url: null,
+            shipped_at: new Date().toISOString()
+          })
+
+        if (shipErr) throw shipErr
+
+        // 3. Update order status to Packed (Ready for dispatch status updates)
+        const { error: orderUpdateErr } = await supabaseAdmin
+          .from('orders')
+          .update({
+            status: 'Packed',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', input.orderId)
+
+        if (orderUpdateErr) throw orderUpdateErr
+
+        return { success: true, waybill }
+      } catch (err: any) {
+        console.error('[Dispatch] dispatchViaManualCourier error:', err)
+        return { success: false, error: err.message || 'Failed to dispatch via manual courier' }
+      }
+    }),
+
   getPackslipUrl: adminMutation
     .input(z.object({ waybills: z.array(z.string().trim().max(50)).min(1).max(100) }))
     .mutation(async ({ input }) => {
@@ -287,6 +361,29 @@ export const dispatchRouter = createRouter({
     }),
 
   getRecentShipments: adminQuery.query(async () => {
+    // Background simulation: mark manual shipments older than 5 days as Delivered
+    try {
+      const cutoffDate = new Date()
+      cutoffDate.setDate(cutoffDate.getDate() - 5)
+
+      const { data: expiredShipments } = await supabaseAdmin
+        .from('shipments')
+        .select('order_id')
+        .like('waybill', 'MANUAL-%')
+        .lt('shipped_at', cutoffDate.toISOString())
+
+      if (expiredShipments && expiredShipments.length > 0) {
+        const orderIdsToDeliver = expiredShipments.map(s => s.order_id)
+        await supabaseAdmin
+          .from('orders')
+          .update({ status: 'Delivered', updated_at: new Date().toISOString() })
+          .in('id', orderIdsToDeliver)
+          .in('status', ['Shipped', 'Packed'])
+      }
+    } catch (simulationErr) {
+      console.error('[Dispatch] Auto-delivery simulation failed:', simulationErr)
+    }
+
     const { data } = await supabaseAdmin.from('shipments').select('*').order('created_at', { ascending: false }).limit(1000)
     return data || []
   }),
