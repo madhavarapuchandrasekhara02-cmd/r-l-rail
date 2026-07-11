@@ -4,14 +4,13 @@ export function generateAlternativeCourierPDF(orders: any[]) {
   const doc = new jsPDF('p', 'mm', 'a4')
   
   const colWidth = 85
-  const rowHeight = 120
-  const marginX = 15
+  const rowHeight = 125
+  const marginX = 14
   const marginY = 15
-  const gapX = 10
+  const gapX = 12
   const gapY = 15
 
   orders.forEach((order, idx) => {
-    const pageIndex = Math.floor(idx / 4)
     const quadrantIndex = idx % 4
 
     if (idx > 0 && quadrantIndex === 0) {
@@ -28,48 +27,60 @@ export function generateAlternativeCourierPDF(orders: any[]) {
 
     // Set bold font for field titles
     doc.setFont("helvetica", "bold")
-    doc.setFontSize(10)
+    doc.setFontSize(10.5)
     doc.text("Order ID:", colX, rowY)
     
     doc.setFont("helvetica", "normal")
+    doc.setFontSize(10)
     doc.text(` ${order.order_number}`, colX + 17, rowY)
 
     doc.setFont("helvetica", "bold")
-    doc.text("Customer:", colX, rowY + 6)
+    doc.setFontSize(10.5)
+    doc.text("Customer:", colX, rowY + 7)
     doc.setFont("helvetica", "normal")
-    doc.text(` ${order.customer_name}`, colX + 18, rowY + 6)
+    doc.setFontSize(10)
+    doc.text(` ${order.customer_name}`, colX + 19, rowY + 7)
 
     doc.setFont("helvetica", "bold")
-    doc.text("Mobile:", colX, rowY + 12)
+    doc.setFontSize(10.5)
+    doc.text("Mobile:", colX, rowY + 14)
     doc.setFont("helvetica", "normal")
-    doc.text(` ${order.customer_phone}`, colX + 13, rowY + 12)
+    doc.setFontSize(10)
+    doc.text(` ${order.customer_phone}`, colX + 14, rowY + 14)
 
     doc.setFont("helvetica", "bold")
-    doc.text("Address:", colX, rowY + 18)
+    doc.setFontSize(10.5)
+    doc.text("Address:", colX, rowY + 21)
     doc.setFont("helvetica", "normal")
+    doc.setFontSize(10)
     
     const fullAddress = `${order.address || ''}, ${order.city || ''}, ${order.state || ''} - ${order.pincode || ''}${order.landmark ? `, Landmark: ${order.landmark}` : ''}`
-    const wrappedAddress = doc.splitTextToSize(fullAddress, colWidth - 5)
-    doc.text(wrappedAddress, colX, rowY + 23)
+    const wrappedAddress = doc.splitTextToSize(fullAddress, colWidth - 2)
+    doc.text(wrappedAddress, colX, rowY + 27)
 
-    const addressHeight = wrappedAddress.length * 4.5
-    const itemsY = rowY + 23 + addressHeight + 2
+    const addressHeight = wrappedAddress.length * 5
+    const itemsY = rowY + 27 + addressHeight + 3
 
     doc.setFont("helvetica", "bold")
+    doc.setFontSize(10.5)
     doc.text("Items :", colX, itemsY)
     doc.setFont("helvetica", "normal")
+    doc.setFontSize(10)
 
-    let itemOffset = 5
+    let itemOffset = 6
     order.order_items?.forEach((item: any) => {
       const itemText = `• ${item.product_name} (${item.variant_label || 'Standard'}) x ${item.quantity}`
-      const wrappedItem = doc.splitTextToSize(itemText, colWidth - 8)
+      const wrappedItem = doc.splitTextToSize(itemText, colWidth - 5)
       doc.text(wrappedItem, colX + 3, itemsY + itemOffset)
-      itemOffset += (wrappedItem.length * 4.5)
+      itemOffset += (wrappedItem.length * 5)
     })
 
-    // Draw grey horizontal line separator under the block
-    doc.setDrawColor(200, 200, 200)
-    doc.line(colX, rowY + rowHeight - 2, colX + colWidth, rowY + rowHeight - 2)
+    // Draw grey horizontal line separator under the top row blocks (to separate row 1 from row 2)
+    if (row === 0) {
+      doc.setDrawColor(180, 180, 180)
+      doc.setLineWidth(0.4)
+      doc.line(colX, rowY + rowHeight + 5, colX + colWidth, rowY + rowHeight + 5)
+    }
   })
 
   return doc
