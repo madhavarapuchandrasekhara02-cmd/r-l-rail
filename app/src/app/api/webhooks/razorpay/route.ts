@@ -35,7 +35,7 @@ export async function POST(req: Request) {
         // Find order associated with this Razorpay Order ID
         const { data: order, error: findErr } = await supabaseAdmin
           .from('orders')
-          .select('id, status')
+          .select('id, status, total')
           .like('payment_method', `%${razorpayOrderId}%`)
           .single()
 
@@ -45,6 +45,15 @@ export async function POST(req: Request) {
           console.log(`[Razorpay Webhook] Order ${order.id} is already processed. Ignoring duplicate webhook to save resources.`)
           return NextResponse.json({ success: true, message: 'Already processed' })
         } else {
+          // Verify payment amount matches database total
+          if (payment && typeof payment.amount === 'number') {
+            const expectedAmountPaise = Math.round(order.total * 100)
+            if (payment.amount !== expectedAmountPaise) {
+              console.warn(`[Razorpay Webhook] Amount mismatch! Captured: ${payment.amount}, Expected: ${expectedAmountPaise}`)
+              return NextResponse.json({ error: 'Payment amount mismatch' }, { status: 400 })
+            }
+          }
+
           // Transition order status to Paid securely
           const { error: updateErr } = await supabaseAdmin
             .from('orders')

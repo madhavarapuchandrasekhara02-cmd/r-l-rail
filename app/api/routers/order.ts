@@ -49,7 +49,7 @@ export const orderRouter = createRouter({
 
         const { data, error } = await supabaseAdmin
           .from('orders')
-          .select('*, order_items(*), shipments(*)')
+          .select('id, order_number, status, created_at, customer_name, total, delivery_charge, order_items(product_name, quantity, variant_label), shipments(carrier_name, tracking_status, tracking_link)')
           .or(orFilter)
           .order('created_at', { ascending: false })
 

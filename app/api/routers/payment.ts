@@ -149,7 +149,7 @@ export const paymentRouter = createRouter({
         // Concurrency Guard Check: Check if order status is already Paid/Shipped/Delivered to prevent double-writes under load
         const { data: dbOrder, error: fetchErr } = await supabaseAdmin
           .from('orders')
-          .select('status')
+          .select('status, payment_method')
           .eq('id', input.orderId)
           .single()
 
@@ -158,6 +158,15 @@ export const paymentRouter = createRouter({
         if (dbOrder.status === 'Paid' || dbOrder.status === 'Shipped' || dbOrder.status === 'Delivered') {
           console.log(`[Razorpay verifyPayment] Order ${input.orderId} already in status '${dbOrder.status}'. Skipping redundant state update.`)
           return { success: true }
+        }
+
+        // Cryptographic Order Association Assert (Bypass Mitigation)
+        if (dbOrder.payment_method !== `razorpay_order:${input.razorpayOrderId}`) {
+          console.warn('[Razorpay verifyPayment] Order substitution attempt detected!')
+          return {
+            success: false,
+            error: 'Transaction mismatch: payment details do not match the target order.'
+          }
         }
 
         // Update order status to Paid
