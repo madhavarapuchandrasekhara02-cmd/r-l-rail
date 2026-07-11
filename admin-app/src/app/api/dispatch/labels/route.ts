@@ -132,11 +132,11 @@ export async function GET(req: NextRequest) {
           const width = p.getWidth()
           const height = p.getHeight()
 
-          // If the page is A4 size (representing a full page with a 4x6 label in the center),
-          // crop it to the exact centered quadrant (153.5 pt x, 205 pt y, 288 pt width, 432 pt height)
+          // If the page is A4 size (representing a full page with a 4x6 label),
+          // crop it to the exact bounds chosen by the user (81 pt x, 240 pt y, 432 pt width, 576 pt height)
           if (width > 500 && height > 700) {
-            p.setCropBox(153.5, 205, 288, 432)
-            p.setMediaBox(153.5, 205, 288, 432)
+            p.setCropBox(81, 240, 432, 576)
+            p.setMediaBox(81, 240, 432, 576)
           }
 
           const embedded = await mergedPdf.embedPage(p)
