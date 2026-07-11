@@ -25,6 +25,8 @@ export default function AdminOrders() {
   const [endDate, setEndDate] = useState('')
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [isSummaryOpen, setIsSummaryOpen] = useState(false)
+  const [fromOrderNum, setFromOrderNum] = useState('')
+  const [toOrderNum, setToOrderNum] = useState('')
 
   useEffect(() => {
     fetchOrders()
@@ -111,11 +113,186 @@ export default function AdminOrders() {
     }
   }
 
-  const filteredOrders = orders.filter(o => 
-    o.order_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    o.customer_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    o.customer_phone?.includes(searchQuery)
-  )
+  const generatePrepSummaryPDF = async () => {
+    try {
+      const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib')
+      const doc = await PDFDocument.create()
+      const font = await doc.embedFont(StandardFonts.Helvetica)
+      const fontBold = await doc.embedFont(StandardFonts.HelveticaBold)
+      
+      let page = doc.addPage([595.28, 841.89]) // A4
+      const { width, height } = page.getSize()
+      
+      let y = height - 50 // starting margin from top
+      
+      // Header Banner Box
+      page.drawRectangle({
+        x: 40,
+        y: y - 25,
+        width: width - 80,
+        height: 60,
+        color: rgb(0.98, 0.97, 0.95),
+        borderColor: rgb(0.9, 0.77, 0.57),
+        borderWidth: 1,
+      })
+      
+      // Header Title
+      page.drawText('ROOTS & LEAVES', { x: 55, y: y + 10, size: 18, font: fontBold, color: rgb(0.29, 0.21, 0.15) })
+      page.drawText('Kitchen & Stock Preparation Summary', { x: 55, y: y - 10, size: 11, font: fontBold, color: rgb(0.7, 0.47, 0.26) })
+      y -= 45
+      
+      // Filter details
+      let filterText = `Generated: ${new Date().toLocaleDateString('en-IN')} ${new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`
+      if (startDate || endDate) {
+        filterText += `   |   Dates: ${startDate || 'Any'} to ${endDate || 'Any'}`
+      }
+      if (fromOrderNum || toOrderNum) {
+        filterText += `   |   Orders: RAL-${fromOrderNum || 'Min'} to RAL-${toOrderNum || 'Max'}`
+      }
+      page.drawText(filterText, { x: 50, y, size: 8, font: font, color: rgb(0.5, 0.5, 0.5) })
+      y -= 15
+      
+      // Horizontal Rule
+      page.drawLine({
+        start: { x: 40, y },
+        end: { x: width - 40, y },
+        thickness: 0.8,
+        color: rgb(0.9, 0.77, 0.57)
+      })
+      y -= 25
+      
+      // Section 1: Total Stock to Prepare (Aggregated)
+      page.drawText('TOTAL STOCK TO PREPARE', { x: 50, y: y + 2, size: 11, font: fontBold, color: rgb(0.29, 0.21, 0.15) })
+      y -= 15
+      
+      const items = Object.entries(bottleAggregation)
+      if (items.length === 0) {
+        page.drawText('No items to prepare.', { x: 60, y, size: 10, font: font, color: rgb(0.4, 0.4, 0.4) })
+        y -= 20
+      } else {
+        // Table Header
+        page.drawRectangle({
+          x: 50,
+          y: y - 5,
+          width: width - 100,
+          height: 18,
+          color: rgb(0.96, 0.95, 0.92)
+        })
+        page.drawText('Product Description', { x: 60, y: y - 1, size: 8.5, font: fontBold, color: rgb(0.29, 0.21, 0.15) })
+        page.drawText('Qty Required', { x: 320, y: y - 1, size: 8.5, font: fontBold, color: rgb(0.29, 0.21, 0.15) })
+        page.drawText('Est. Weight', { x: 440, y: y - 1, size: 8.5, font: fontBold, color: rgb(0.29, 0.21, 0.15) })
+        y -= 22
+
+        for (const [key, data] of items as any) {
+          if (y < 60) {
+            page = doc.addPage([595.28, 841.89])
+            y = height - 50
+          }
+          
+          // Draw Row line
+          page.drawLine({
+            start: { x: 50, y: y + 10 },
+            end: { x: width - 50, y: y + 10 },
+            thickness: 0.5,
+            color: rgb(0.95, 0.95, 0.95)
+          })
+
+          page.drawText(key, { x: 60, y, size: 9, font: font, color: rgb(0.2, 0.2, 0.2) })
+          page.drawText(`${data.count} Units`, { x: 320, y, size: 9, font: fontBold, color: rgb(0.7, 0.47, 0.26) })
+          page.drawText(`${((data.weight + TARE_WEIGHT) / 1000).toFixed(1)} Kg`, { x: 440, y, size: 8.5, font: font, color: rgb(0.5, 0.5, 0.5) })
+          y -= 18
+        }
+      }
+      y -= 15
+      
+      // Horizontal Rule
+      page.drawLine({
+        start: { x: 40, y },
+        end: { x: width - 40, y },
+        thickness: 0.8,
+        color: rgb(0.9, 0.77, 0.57)
+      })
+      y -= 25
+      
+      // Section 2: Order-wise breakdown
+      page.drawText('ORDER-WISE PRODUCT BREAKDOWN', { x: 50, y: y + 2, size: 11, font: fontBold, color: rgb(0.29, 0.21, 0.15) })
+      y -= 15
+      
+      const orderBreakdown = prepOrders.map(order => {
+        const itemsStr = order.order_items?.map((item: any) => `${item.quantity}x ${item.product_name} (${item.variant_label || 'Standard'})`).join(', ')
+        return {
+          num: order.order_number,
+          items: itemsStr,
+          customer: order.customer_name
+        }
+      })
+      
+      if (orderBreakdown.length === 0) {
+        page.drawText('No orders to prepare.', { x: 60, y, size: 10, font: font, color: rgb(0.4, 0.4, 0.4) })
+        y -= 20
+      } else {
+        for (const ord of orderBreakdown) {
+          if (y < 70) {
+            page = doc.addPage([595.28, 841.89])
+            y = height - 50
+          }
+          
+          // Draw order row header
+          page.drawRectangle({
+            x: 50,
+            y: y - 4,
+            width: width - 100,
+            height: 14,
+            color: rgb(0.98, 0.98, 0.97)
+          })
+          page.drawText(ord.num, { x: 58, y: y - 1, size: 8.5, font: fontBold, color: rgb(0.29, 0.21, 0.15) })
+          page.drawText(`-  Customer: ${ord.customer}`, { x: 120, y: y - 1, size: 8, font: font, color: rgb(0.4, 0.4, 0.4) })
+          y -= 18
+          
+          // Draw order items
+          page.drawText(`Products: ${ord.items}`, { x: 70, y, size: 8.5, font: font, color: rgb(0.2, 0.2, 0.2) })
+          y -= 16
+        }
+      }
+      
+      const pdfBytes = await doc.save()
+      const blob = new Blob([pdfBytes] as any, { type: 'application/pdf' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `stock-preparation-summary-${new Date().toISOString().split('T')[0]}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('Failed to generate summary PDF:', err)
+      alert('Failed to generate PDF')
+    }
+  }
+
+  const filteredOrders = orders.filter(o => {
+    const matchesSearch = 
+      o.order_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      o.customer_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      o.customer_phone?.includes(searchQuery)
+
+    if (!matchesSearch) return false
+
+    if (fromOrderNum || toOrderNum) {
+      const numStr = o.order_number?.replace(/[^0-9]/g, '')
+      if (!numStr) return false
+      const num = parseInt(numStr, 10)
+      if (fromOrderNum) {
+        const min = parseInt(fromOrderNum, 10)
+        if (!isNaN(min) && num < min) return false
+      }
+      if (toOrderNum) {
+        const max = parseInt(toOrderNum, 10)
+        if (!isNaN(max) && num > max) return false
+      }
+    }
+
+    return true
+  })
 
   // Filter for orders that need to be prepared (Paid)
   const prepOrders = filteredOrders.filter(o => o.status === 'Paid')
@@ -186,7 +363,42 @@ export default function AdminOrders() {
           </div>
         </div>
         
-
+        {/* Order Range Filter */}
+        <div className="flex flex-wrap items-center gap-4 w-full md:w-auto border-t md:border-t-0 md:border-l border-[#E5C492]/60 pt-4 md:pt-0 md:pl-4">
+          <div className="flex items-center gap-2">
+            <Package className="w-5 h-5 text-[#B37943]" />
+            <span className="text-xs font-bold text-[#4A3525] uppercase tracking-wider">Order Range:</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr_auto] items-stretch md:items-center gap-2 w-full md:w-auto">
+            <input
+              type="number"
+              placeholder="From (e.g. 54)"
+              value={fromOrderNum}
+              onChange={(e) => setFromOrderNum(e.target.value)}
+              className="bg-[#FAF9F6] border border-[#E5C492] rounded-xl px-3 py-2 text-xs font-bold text-[#4A3525] focus:outline-none focus:ring-2 focus:ring-[#B37943]/20 w-full text-center md:w-28 min-w-0"
+            />
+            <span className="text-xs text-[#B37943] font-bold px-1 text-center">to</span>
+            <input
+              type="number"
+              placeholder="To (e.g. 65)"
+              value={toOrderNum}
+              onChange={(e) => setToOrderNum(e.target.value)}
+              className="bg-[#FAF9F6] border border-[#E5C492] rounded-xl px-3 py-2 text-xs font-bold text-[#4A3525] focus:outline-none focus:ring-2 focus:ring-[#B37943]/20 w-full text-center md:w-28 min-w-0"
+            />
+            {(fromOrderNum || toOrderNum) && (
+              <button
+                onClick={() => {
+                  setFromOrderNum('')
+                  setToOrderNum('')
+                }}
+                className="py-2.5 bg-rose-50 text-rose-600 rounded-xl border border-rose-100 hover:bg-rose-100 transition-colors flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-widest md:p-2"
+                title="Clear Range"
+              >
+                <X className="w-4 h-4" /> <span className="md:hidden">Clear Range</span>
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Stock Prep Aggregator */}
@@ -201,6 +413,15 @@ export default function AdminOrders() {
               <span className="text-[11px] sm:text-sm font-bold text-[#4A3525] uppercase tracking-wider font-sans group-hover:text-[#B37943] transition-colors">Kitchen & Stock Preparation Summary</span>
             </div>
             <div className="flex items-center gap-3">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  generatePrepSummaryPDF()
+                }}
+                className="flex items-center gap-1 bg-[#B37943] hover:bg-[#4A3525] text-white transition-colors px-3 py-1 rounded-full text-[9px] sm:text-[10px] font-bold uppercase tracking-wider shadow-sm"
+              >
+                <Printer className="w-3 h-3" /> Download Summary PDF
+              </button>
               <span className="text-[9px] sm:text-[10px] bg-[#B37943]/10 text-[#4A3525] font-extrabold uppercase px-2 py-0.5 sm:px-3 sm:py-1 rounded-full border border-[#E5C492]">
                 {prepOrders.length} Orders
               </span>
