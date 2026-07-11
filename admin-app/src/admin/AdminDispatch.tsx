@@ -168,6 +168,26 @@ export default function AdminDispatch() {
     setSelectedOrderIds([])
   }
 
+  // Auto-select range in real time when input values are provided
+  useEffect(() => {
+    if (!rangeFrom && !rangeTo) return
+
+    const fromNum = parseInt(rangeFrom.replace(/[^0-9]/g, ''), 10)
+    const toNum = parseInt(rangeTo.replace(/[^0-9]/g, ''), 10)
+
+    if (isNaN(fromNum) || isNaN(toNum)) return
+
+    const start = Math.min(fromNum, toNum)
+    const end = Math.max(fromNum, toNum)
+
+    const matches = currentList.filter(o => {
+      const oNum = parseInt(o.order_number?.replace(/[^0-9]/g, '') || '0', 10)
+      return oNum >= start && oNum <= end
+    })
+
+    setSelectedOrderIds(matches.map(o => o.id))
+  }, [rangeFrom, rangeTo, currentList])
+
   // Helper to securely trigger PDF downloads bypassing popup blockers & cookie limits on mobile
   const triggerLabelDownload = async (waybills: string[]) => {
     try {
@@ -327,51 +347,56 @@ export default function AdminDispatch() {
 
       {/* Action Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between bg-white p-3 md:p-4 rounded-2xl border border-[#E5C492] shadow-sm sticky top-4 z-20 gap-3">
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-3">
-            <input type="checkbox" checked={selectedOrderIds.length > 0 && selectedOrderIds.length === currentList.length} onChange={toggleAll} className="rounded border-[#E5C492] text-[#4A3525] focus:ring-[#4A3525] cursor-pointer w-4 h-4" />
-            <span className="text-xs font-bold text-[#4A3525] uppercase tracking-widest font-sans">{selectedOrderIds.length} Selected</span>
-          </div>
-
-          <div className="flex items-center gap-2 border-l border-[#E5C492]/60 pl-4 flex-wrap">
-            <span className="text-[10px] font-bold text-[#B37943] uppercase tracking-widest font-sans">Range:</span>
-            <input 
-              type="text" 
-              placeholder="" 
-              value={rangeFrom} 
-              onChange={e => setRangeFrom(e.target.value)} 
-              className="w-20 h-8 px-2 bg-[#FAF9F6] border border-[#E5C492] rounded-lg text-xs outline-none text-[#4A3525] font-semibold"
-            />
-            <span className="text-[10px] font-bold text-[#B37943] uppercase tracking-widest font-sans">To:</span>
-            <input 
-              type="text" 
-              placeholder="" 
-              value={rangeTo} 
-              onChange={e => setRangeTo(e.target.value)} 
-              className="w-20 h-8 px-2 bg-[#FAF9F6] border border-[#E5C492] rounded-lg text-xs outline-none text-[#4A3525] font-semibold"
-            />
-            <button 
-              onClick={handleApplyRangeSelect}
-              className="h-8 px-3 bg-[#4A3525] text-white rounded-lg text-[10px] font-sans font-bold uppercase tracking-wider hover:bg-[#32241b] active:scale-[0.98] transition-all cursor-pointer"
-            >
-              Select
-            </button>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4 w-full md:w-auto">
+          <div className="flex items-center justify-between sm:justify-start gap-3 w-full sm:w-auto">
+            <div className="flex items-center gap-3">
+              <input type="checkbox" checked={selectedOrderIds.length > 0 && selectedOrderIds.length === currentList.length} onChange={toggleAll} className="rounded border-[#E5C492] text-[#4A3525] focus:ring-[#4A3525] cursor-pointer w-4 h-4" />
+              <span className="text-xs font-bold text-[#4A3525] uppercase tracking-widest font-sans">{selectedOrderIds.length} Selected</span>
+            </div>
+            
             {(rangeFrom || rangeTo) && (
               <button 
                 onClick={handleClearRangeSelect}
-                className="h-8 px-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-[10px] font-sans font-bold uppercase tracking-wider active:scale-[0.98] transition-all cursor-pointer"
+                className="h-8 px-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-[10px] font-sans font-bold uppercase tracking-wider active:scale-[0.98] transition-all cursor-pointer border border-rose-100 sm:hidden"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1.5 border-t sm:border-t-0 sm:border-l border-[#E5C492]/60 pt-3 sm:pt-0 sm:pl-4 w-full sm:w-auto">
+            <span className="text-[10px] font-bold text-[#B37943] uppercase tracking-widest font-sans shrink-0">Range:</span>
+            <input 
+              type="number" 
+              placeholder="" 
+              value={rangeFrom} 
+              onChange={e => setRangeFrom(e.target.value)} 
+              className="w-16 h-8 px-2 bg-[#FAF9F6] border border-[#E5C492] rounded-lg text-xs outline-none text-[#4A3525] font-semibold text-center"
+            />
+            <span className="text-[10px] font-bold text-[#B37943] uppercase tracking-widest font-sans shrink-0">to</span>
+            <input 
+              type="number" 
+              placeholder="" 
+              value={rangeTo} 
+              onChange={e => setRangeTo(e.target.value)} 
+              className="w-16 h-8 px-2 bg-[#FAF9F6] border border-[#E5C492] rounded-lg text-xs outline-none text-[#4A3525] font-semibold text-center"
+            />
+            {(rangeFrom || rangeTo) && (
+              <button 
+                onClick={handleClearRangeSelect}
+                className="h-8 px-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-[10px] font-sans font-bold uppercase tracking-wider active:scale-[0.98] transition-all cursor-pointer border border-rose-100 hidden sm:block"
               >
                 Clear
               </button>
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full md:w-auto">
           {activeTab === 'action' && (
             <button
               onClick={handleGenerateLabels}
               disabled={selectedOrderIds.length === 0 || generateLabelsMutation.isPending}
-              className="h-9 px-4 bg-[#4A3525] text-white hover:bg-[#32241b] rounded-xl text-[10px] font-sans font-bold uppercase tracking-wider transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2 active:scale-[0.98]"
+              className="h-9 px-4 bg-[#4A3525] text-white hover:bg-[#32241b] rounded-xl text-[10px] font-sans font-bold uppercase tracking-wider transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2 active:scale-[0.98] flex-1 sm:flex-none justify-center"
             >
               {generateLabelsMutation.isPending ? <Loader className="w-3.5 h-3.5 animate-spin" /> : <Printer className="w-3.5 h-3.5" />}
               Generate Labels
@@ -381,7 +406,7 @@ export default function AdminDispatch() {
             <button
               onClick={handleDispatch}
               disabled={selectedOrderIds.length === 0 || dispatchOrdersMutation.isPending}
-              className="h-9 px-4 bg-[#B37943] text-white hover:bg-[#96612F] rounded-xl text-[10px] font-sans font-bold uppercase tracking-wider transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2 active:scale-[0.98]"
+              className="h-9 px-4 bg-[#B37943] text-white hover:bg-[#96612F] rounded-xl text-[10px] font-sans font-bold uppercase tracking-wider transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2 active:scale-[0.98] flex-1 sm:flex-none justify-center"
             >
               {dispatchOrdersMutation.isPending ? <Loader className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
               Mark Dispatched
@@ -393,7 +418,7 @@ export default function AdminDispatch() {
                 setExpectedPkgCount(awaitingOrders.length || 1)
                 setShowPickupModal(true)
               }}
-              className="h-9 px-4 bg-white border border-[#E5C492] text-[#4A3525] hover:bg-[#FAF3E8] rounded-xl text-[10px] font-sans font-bold uppercase tracking-wider transition-all flex items-center gap-2 active:scale-[0.98]"
+              className="h-9 px-4 bg-white border border-[#E5C492] text-[#4A3525] hover:bg-[#FAF3E8] rounded-xl text-[10px] font-sans font-bold uppercase tracking-wider transition-all flex items-center gap-2 active:scale-[0.98] flex-1 sm:flex-none justify-center"
             >
               <Calendar className="w-3.5 h-3.5 text-[#B37943]" /> Schedule Pickup
             </button>
@@ -402,7 +427,7 @@ export default function AdminDispatch() {
           <button
             onClick={handlePrintSelected}
             disabled={selectedOrderIds.length === 0}
-            className="h-9 px-4 bg-white border border-[#E5C492] text-[#4A3525] hover:bg-[#FAF3E8] rounded-xl text-[10px] font-sans font-bold uppercase tracking-wider transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2 active:scale-[0.98]"
+            className="h-9 px-4 bg-white border border-[#E5C492] text-[#4A3525] hover:bg-[#FAF3E8] rounded-xl text-[10px] font-sans font-bold uppercase tracking-wider transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2 active:scale-[0.98] flex-1 sm:flex-none justify-center"
           >
             <FileText className="w-3.5 h-3.5 text-[#B37943]" /> PDF Labels
           </button>
@@ -417,17 +442,29 @@ export default function AdminDispatch() {
         <div className="bg-white rounded-2xl border border-[#E5C492] shadow-sm flex flex-col min-h-[400px]">
           <div className="md:hidden divide-y divide-[#FAF3E8] overflow-y-auto max-h-[60vh] custom-scrollbar">
             {currentList.map(o => (
-              <div key={o.id} className="p-3 sm:p-4 flex items-start gap-3">
-                <input type="checkbox" checked={selectedOrderIds.includes(o.id)} onChange={() => toggleOrder(o.id)} className="mt-1 rounded border-[#E5C492] text-[#4A3525] focus:ring-[#4A3525] cursor-pointer shrink-0" />
+              <div 
+                key={o.id} 
+                onClick={() => toggleOrder(o.id)}
+                className={`p-3 sm:p-4 flex items-start gap-3 hover:bg-[#FAF9F6]/20 transition-colors cursor-pointer ${selectedOrderIds.includes(o.id) ? 'bg-[#FAF3E8]/35' : ''}`}
+              >
+                <input 
+                  type="checkbox" 
+                  checked={selectedOrderIds.includes(o.id)} 
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    toggleOrder(o.id);
+                  }} 
+                  className="mt-1 rounded border-[#E5C492] text-[#4A3525] focus:ring-[#4A3525] cursor-pointer shrink-0" 
+                />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs font-bold text-[#4A3525] truncate">{o.order_number}</span>
-                    <span className="text-[10px] font-bold font-sans uppercase tracking-widest text-[#B37943] shrink-0">{o.status}</span>
+                    <span className="text-[9px] font-bold font-sans uppercase tracking-widest text-[#B37943] shrink-0">{o.status}</span>
                   </div>
                   <div className="text-[10px] text-[#4A3525] font-semibold mt-1 truncate">{o.customer_name}</div>
-                  <div className="text-[10px] text-[#7B6856] mt-0.5 break-words whitespace-normal">{o.address}, {o.city} - {o.pincode}</div>
+                  <div className="text-[10px] text-[#7B6856] mt-0.5 break-words whitespace-normal leading-relaxed">{o.address}, {o.city} - {o.pincode}</div>
                   {o.shipments?.[0]?.waybill && (
-                    <div className="mt-2 text-[9px] font-mono font-bold bg-[#FAF9F6] border border-[#E5C492] p-1.5 rounded text-[#B37943] inline-block">AWB: {o.shipments[0].waybill}</div>
+                    <div className="mt-2 text-[9px] font-mono font-bold bg-[#FAF9F6] border border-[#E5C492] px-2 py-1 rounded-lg text-[#B37943] inline-block">AWB: {o.shipments[0].waybill}</div>
                   )}
                 </div>
               </div>
