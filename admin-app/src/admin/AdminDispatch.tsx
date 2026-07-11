@@ -44,6 +44,8 @@ export default function AdminDispatch() {
   })
   const [pickupTime, setPickupTime] = useState('14:00:00')
   const [expectedPkgCount, setExpectedPkgCount] = useState(1)
+  const [rangeFrom, setRangeFrom] = useState('')
+  const [rangeTo, setRangeTo] = useState('')
 
   const generateLabelsMutation = trpc.dispatch.generateLabels.useMutation()
   const dispatchOrdersMutation = trpc.dispatch.dispatchOrders.useMutation()
@@ -130,6 +132,40 @@ export default function AdminDispatch() {
   }
   const toggleAll = () => {
     setSelectedOrderIds(prev => prev.length === currentList.length ? [] : currentList.map(o => o.id))
+  }
+
+  const handleApplyRangeSelect = () => {
+    if (!rangeFrom && !rangeTo) return;
+    
+    const fromNum = parseInt(rangeFrom.replace(/[^0-9]/g, ''), 10)
+    const toNum = parseInt(rangeTo.replace(/[^0-9]/g, ''), 10)
+
+    if (isNaN(fromNum) || isNaN(toNum)) {
+      toast.error('Please enter valid numeric order numbers (e.g. 52 to 55)')
+      return
+    }
+
+    const start = Math.min(fromNum, toNum)
+    const end = Math.max(fromNum, toNum)
+
+    const matches = currentList.filter(o => {
+      const oNum = parseInt(o.order_number?.replace(/[^0-9]/g, '') || '0', 10)
+      return oNum >= start && oNum <= end
+    })
+
+    if (matches.length === 0) {
+      toast.error(`No orders found in range RAL-${start} to RAL-${end}`)
+      return
+    }
+
+    setSelectedOrderIds(matches.map(o => o.id))
+    toast.success(`Selected ${matches.length} orders in range RAL-${start} to RAL-${end}`)
+  }
+
+  const handleClearRangeSelect = () => {
+    setRangeFrom('')
+    setRangeTo('')
+    setSelectedOrderIds([])
   }
 
   // Helper to securely trigger PDF downloads bypassing popup blockers & cookie limits on mobile
@@ -290,10 +326,45 @@ export default function AdminDispatch() {
       </div>
 
       {/* Action Bar */}
-      <div className="flex items-center justify-between bg-white p-3 md:p-4 rounded-2xl border border-[#E5C492] shadow-sm sticky top-4 z-20">
-        <div className="flex items-center gap-3">
-          <input type="checkbox" checked={selectedOrderIds.length > 0 && selectedOrderIds.length === currentList.length} onChange={toggleAll} className="rounded border-[#E5C492] text-[#4A3525] focus:ring-[#4A3525] cursor-pointer w-4 h-4" />
-          <span className="text-xs font-bold text-[#4A3525] uppercase tracking-widest font-sans">{selectedOrderIds.length} Selected</span>
+      <div className="flex flex-col md:flex-row md:items-center justify-between bg-white p-3 md:p-4 rounded-2xl border border-[#E5C492] shadow-sm sticky top-4 z-20 gap-3">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-3">
+            <input type="checkbox" checked={selectedOrderIds.length > 0 && selectedOrderIds.length === currentList.length} onChange={toggleAll} className="rounded border-[#E5C492] text-[#4A3525] focus:ring-[#4A3525] cursor-pointer w-4 h-4" />
+            <span className="text-xs font-bold text-[#4A3525] uppercase tracking-widest font-sans">{selectedOrderIds.length} Selected</span>
+          </div>
+
+          <div className="flex items-center gap-2 border-l border-[#E5C492]/60 pl-4 flex-wrap">
+            <span className="text-[10px] font-bold text-[#B37943] uppercase tracking-widest font-sans">Range:</span>
+            <input 
+              type="text" 
+              placeholder="From (e.g. 52)" 
+              value={rangeFrom} 
+              onChange={e => setRangeFrom(e.target.value)} 
+              className="w-20 h-8 px-2 bg-[#FAF9F6] border border-[#E5C492] rounded-lg text-xs outline-none text-[#4A3525] font-semibold"
+            />
+            <span className="text-[10px] font-bold text-[#B37943] uppercase tracking-widest font-sans">To:</span>
+            <input 
+              type="text" 
+              placeholder="To (e.g. 55)" 
+              value={rangeTo} 
+              onChange={e => setRangeTo(e.target.value)} 
+              className="w-20 h-8 px-2 bg-[#FAF9F6] border border-[#E5C492] rounded-lg text-xs outline-none text-[#4A3525] font-semibold"
+            />
+            <button 
+              onClick={handleApplyRangeSelect}
+              className="h-8 px-3 bg-[#4A3525] text-white rounded-lg text-[10px] font-sans font-bold uppercase tracking-wider hover:bg-[#32241b] active:scale-[0.98] transition-all cursor-pointer"
+            >
+              Select
+            </button>
+            {(rangeFrom || rangeTo) && (
+              <button 
+                onClick={handleClearRangeSelect}
+                className="h-8 px-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-[10px] font-sans font-bold uppercase tracking-wider active:scale-[0.98] transition-all cursor-pointer"
+              >
+                Clear
+              </button>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {activeTab === 'action' && (
