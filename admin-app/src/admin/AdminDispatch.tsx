@@ -524,7 +524,7 @@ export default function AdminDispatch() {
             <FileText className="w-3.5 h-3.5 text-[#B37943]" /> PDF Labels
           </button>
           
-          <div className="relative flex items-center flex-1 sm:flex-none">
+          <div className="relative flex items-center w-full sm:w-auto">
             <select
               onChange={(e) => {
                 const val = e.target.value
@@ -533,7 +533,7 @@ export default function AdminDispatch() {
                 e.target.value = '' // Reset selection
               }}
               defaultValue=""
-              className="h-9 px-4 bg-white border border-[#E5C492] text-[#4A3525] rounded-xl text-[10px] font-sans font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center outline-none focus:ring-1 focus:ring-[#B37943]/20"
+              className="w-full sm:w-auto h-9 px-4 bg-white border border-[#E5C492] text-[#4A3525] rounded-xl text-[10px] font-sans font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center outline-none focus:ring-1 focus:ring-[#B37943]/20"
             >
               <option value="" disabled>Alternative Courier</option>
               <option value="unserviceable">Print Unserviceable</option>
