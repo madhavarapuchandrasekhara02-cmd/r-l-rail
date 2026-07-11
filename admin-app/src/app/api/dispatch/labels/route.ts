@@ -130,6 +130,15 @@ export async function GET(req: NextRequest) {
       if (pdfDoc) {
         const pages = pdfDoc.getPages()
         for (const p of pages) {
+          const width = p.getWidth()
+          const height = p.getHeight()
+
+          // If the page is A4 size (representing a full page with a tiny label in top-left),
+          // crop it to the top-left quadrant (approx 297x421 pt) to extract the actual 4x6 label.
+          if (width > 500 && height > 700) {
+            p.setCropBox(0, height / 2, width / 2, height / 2)
+          }
+
           const embedded = await mergedPdf.embedPage(p)
           embeddedPages.push(embedded)
         }
