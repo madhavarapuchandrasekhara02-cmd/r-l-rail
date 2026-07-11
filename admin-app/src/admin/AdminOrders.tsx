@@ -419,7 +419,7 @@ export default function AdminOrders() {
           <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr_auto] items-stretch md:items-center gap-2 w-full md:w-auto">
             <input
               type="number"
-              placeholder="From (e.g. 54)"
+              placeholder=""
               value={fromOrderNum}
               onChange={(e) => setFromOrderNum(e.target.value)}
               className="bg-[#FAF9F6] border border-[#E5C492] rounded-xl px-3 py-2 text-xs font-bold text-[#4A3525] focus:outline-none focus:ring-2 focus:ring-[#B37943]/20 w-full text-center md:w-28 min-w-0"
@@ -427,7 +427,7 @@ export default function AdminOrders() {
             <span className="text-xs text-[#B37943] font-bold px-1 text-center">to</span>
             <input
               type="number"
-              placeholder="To (e.g. 65)"
+              placeholder=""
               value={toOrderNum}
               onChange={(e) => setToOrderNum(e.target.value)}
               className="bg-[#FAF9F6] border border-[#E5C492] rounded-xl px-3 py-2 text-xs font-bold text-[#4A3525] focus:outline-none focus:ring-2 focus:ring-[#B37943]/20 w-full text-center md:w-28 min-w-0"

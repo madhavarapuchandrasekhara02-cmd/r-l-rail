@@ -337,7 +337,7 @@ export default function AdminDispatch() {
             <span className="text-[10px] font-bold text-[#B37943] uppercase tracking-widest font-sans">Range:</span>
             <input 
               type="text" 
-              placeholder="From (e.g. 52)" 
+              placeholder="" 
               value={rangeFrom} 
               onChange={e => setRangeFrom(e.target.value)} 
               className="w-20 h-8 px-2 bg-[#FAF9F6] border border-[#E5C492] rounded-lg text-xs outline-none text-[#4A3525] font-semibold"
@@ -345,7 +345,7 @@ export default function AdminDispatch() {
             <span className="text-[10px] font-bold text-[#B37943] uppercase tracking-widest font-sans">To:</span>
             <input 
               type="text" 
-              placeholder="To (e.g. 55)" 
+              placeholder="" 
               value={rangeTo} 
               onChange={e => setRangeTo(e.target.value)} 
               className="w-20 h-8 px-2 bg-[#FAF9F6] border border-[#E5C492] rounded-lg text-xs outline-none text-[#4A3525] font-semibold"
