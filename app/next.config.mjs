@@ -17,29 +17,9 @@ const nextConfig = {
 
   // ── Image Optimization ───────────────────────────────────────────────────
   images: {
-    // Serve WebP + AVIF (best modern formats for bandwidth efficiency)
-    formats: ["image/avif", "image/webp"],
-
-    // Responsive breakpoints (match actual usage in components)
-    deviceSizes: [640, 750, 828, 1080, 1200, 1920],
-    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
-
-    // Minimize unoptimized images
-    minimumCacheTTL: 31536000, // 1 year cache for optimized images
-
-    // Remote patterns — only allow known safe origins
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "**.supabase.co",
-        port: "",
-        pathname: "/storage/v1/object/public/**",
-      },
-      {
-        protocol: "https",
-        hostname: "res.cloudinary.com",
-      },
-    ],
+    // Bypass local server-side optimization; delegate directly to Cloudinary
+    loader: 'custom',
+    loaderFile: './src/lib/cloudinary-loader.ts',
   },
 
   // ── Bundle Optimization ──────────────────────────────────────────────────

@@ -20,6 +20,7 @@ const envSchema = z.object({
   DELHIVERY_ORIGIN_PINCODE: z.string().min(6, "Valid origin pincode is required"),
   DELHIVERY_PICKUP_LOCATION_NAME: z.string().min(1, "Pickup location name is required"),
   DELHIVERY_CLIENT_NAME: z.string().min(1, "Client name is required"),
+  DELHIVERY_WEBHOOK_SECRET: z.string().min(1, "Delhivery Webhook Secret is required"),
 
   // Legacy DB
   DATABASE_URL: z.string().optional(),

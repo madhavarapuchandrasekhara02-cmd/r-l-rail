@@ -1,9 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 import { supabaseAdmin } from '../../../../../api/lib/supabase-admin'
+import { env } from '../../../../lib/env'
 
 export async function POST(req: NextRequest) {
   try {
+    // 1. Authorize webhook request using secret query token
+    const { searchParams } = new URL(req.url)
+    const token = searchParams.get('token')
+
+    if (!token || token !== env.DELHIVERY_WEBHOOK_SECRET) {
+      console.warn('[Delhivery Webhook] Unauthorized status update attempt blocked')
+      return new NextResponse('Unauthorized', { status: 401 })
+    }
+
     const body = await req.json()
     console.log('[Delhivery Webhook] Received payload:', JSON.stringify(body))
 
