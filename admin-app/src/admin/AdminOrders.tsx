@@ -216,42 +216,89 @@ export default function AdminOrders() {
       
       // Section 2: Order-wise breakdown
       page.drawText('ORDER-WISE PRODUCT BREAKDOWN', { x: 50, y: y + 2, size: 11, font: fontBold, color: rgb(0.29, 0.21, 0.15) })
-      y -= 15
+      y -= 20
       
-      const orderBreakdown = prepOrders.map(order => {
-        const itemsStr = order.order_items?.map((item: any) => `${item.quantity}x ${item.product_name} (${item.variant_label || 'Standard'})`).join(', ')
-        return {
-          num: order.order_number,
-          items: itemsStr,
-          customer: order.customer_name
-        }
-      })
-      
-      if (orderBreakdown.length === 0) {
+      if (prepOrders.length === 0) {
         page.drawText('No orders to prepare.', { x: 60, y, size: 10, font: font, color: rgb(0.4, 0.4, 0.4) })
         y -= 20
       } else {
-        for (const ord of orderBreakdown) {
-          if (y < 70) {
+        for (const order of prepOrders) {
+          // Check space for header + at least one item row (approx 45 points)
+          if (y < 80) {
             page = doc.addPage([595.28, 841.89])
             y = height - 50
           }
           
-          // Draw order row header
+          // Draw order row header background
           page.drawRectangle({
             x: 50,
             y: y - 4,
             width: width - 100,
-            height: 14,
-            color: rgb(0.98, 0.98, 0.97)
+            height: 18,
+            color: rgb(0.96, 0.95, 0.92) // warm light grey
           })
-          page.drawText(ord.num, { x: 58, y: y - 1, size: 8.5, font: fontBold, color: rgb(0.29, 0.21, 0.15) })
-          page.drawText(`-  Customer: ${ord.customer}`, { x: 120, y: y - 1, size: 8, font: font, color: rgb(0.4, 0.4, 0.4) })
-          y -= 18
           
-          // Draw order items
-          page.drawText(`Products: ${ord.items}`, { x: 70, y, size: 8.5, font: font, color: rgb(0.2, 0.2, 0.2) })
-          y -= 16
+          // Draw Order ID
+          page.drawText(order.order_number || `RAL-${order.id.slice(0, 4)}`, { 
+            x: 58, 
+            y: y + 1, 
+            size: 9, 
+            font: fontBold, 
+            color: rgb(0.29, 0.21, 0.15) 
+          })
+          
+          // Draw Customer Name
+          page.drawText(`Customer: ${order.customer_name || 'N/A'}`, { 
+            x: 180, 
+            y: y + 1, 
+            size: 8.5, 
+            font: fontBold, 
+            color: rgb(0.4, 0.4, 0.4) 
+          })
+          
+          y -= 22 // space under header
+          
+          // Draw vertical checklist items
+          const items = order.order_items || []
+          for (const item of items) {
+            if (y < 60) {
+              page = doc.addPage([595.28, 841.89])
+              y = height - 50
+            }
+            
+            // Draw Checkbox Box
+            page.drawRectangle({
+              x: 65,
+              y: y,
+              width: 8,
+              height: 8,
+              borderColor: rgb(0.5, 0.5, 0.5),
+              borderWidth: 0.8,
+            })
+            
+            // Draw Quantity "1 x"
+            page.drawText(`${item.quantity} x`, { 
+              x: 82, 
+              y: y, 
+              size: 8.5, 
+              font: fontBold, 
+              color: rgb(0.7, 0.47, 0.26) 
+            })
+            
+            // Draw Product Name
+            const labelText = `${item.product_name} (${item.variant_label || 'Standard'})`
+            page.drawText(labelText, { 
+              x: 110, 
+              y: y, 
+              size: 8.5, 
+              font: font, 
+              color: rgb(0.2, 0.2, 0.2) 
+            })
+            
+            y -= 16 // line margin
+          }
+          
+          y -= 10 // gap between order cards
         }
       }
       
