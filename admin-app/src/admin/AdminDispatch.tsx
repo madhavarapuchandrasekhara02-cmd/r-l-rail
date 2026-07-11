@@ -48,6 +48,15 @@ export default function AdminDispatch() {
   const [rangeFrom, setRangeFrom] = useState('')
   const [rangeTo, setRangeTo] = useState('')
 
+  // Alternative Courier states
+  const [showAltDropdown, setShowAltDropdown] = useState(false)
+  const [showPrintRangeModal, setShowPrintRangeModal] = useState(false)
+  const [rangeModalTab, setRangeModalTab] = useState<'date' | 'order'>('date')
+  const [rangeModalFromDate, setRangeModalFromDate] = useState('')
+  const [rangeModalToDate, setRangeModalToDate] = useState('')
+  const [rangeModalFromId, setRangeModalFromId] = useState('')
+  const [rangeModalToId, setRangeModalToId] = useState('')
+
   const generateLabelsMutation = trpc.dispatch.generateLabels.useMutation()
   const dispatchOrdersMutation = trpc.dispatch.dispatchOrders.useMutation()
   const schedulePickupMutation = trpc.dispatch.schedulePickup.useMutation()
@@ -241,33 +250,58 @@ export default function AdminDispatch() {
     toast.success(`Downloaded layout sheet for ${unserviceable.length} unserviceable orders!`)
   }
 
-  const handlePrintRangePDF = () => {
-    const fromVal = prompt("Enter From Order Number (e.g. 54):")
-    if (!fromVal) return
-    const toVal = prompt("Enter To Order Number (e.g. 65):")
-    if (!toVal) return
+  const handleDownloadRangePDF = () => {
+    let matches: any[] = []
 
-    const start = Math.min(parseInt(fromVal, 10), parseInt(toVal, 10))
-    const end = Math.max(parseInt(fromVal, 10), parseInt(toVal, 10))
+    if (rangeModalTab === 'date') {
+      if (!rangeModalFromDate || !rangeModalToDate) {
+        toast.error("Please enter both start and end dates.")
+        return
+      }
 
-    if (isNaN(start) || isNaN(end)) {
-      toast.error("Invalid range numbers entered.")
-      return
-    }
+      const start = new Date(rangeModalFromDate)
+      start.setHours(0, 0, 0, 0)
+      const end = new Date(rangeModalToDate)
+      end.setHours(23, 59, 59, 999)
 
-    const matches = actionOrders.filter(o => {
-      const oNum = parseInt(o.order_number?.replace(/[^0-9]/g, '') || '0', 10)
-      return oNum >= start && oNum <= end
-    })
+      matches = actionOrders.filter(o => {
+        const oDate = new Date(o.created_at)
+        return oDate >= start && oDate <= end
+      })
 
-    if (matches.length === 0) {
-      toast.error("No orders found in that range under Action Required.")
-      return
+      if (matches.length === 0) {
+        toast.error("No paid orders found within selected date span.")
+        return
+      }
+    } else {
+      if (!rangeModalFromId || !rangeModalToId) {
+        toast.error("Please enter both from and to Order IDs.")
+        return
+      }
+
+      const start = Math.min(parseInt(rangeModalFromId, 10), parseInt(rangeModalToId, 10))
+      const end = Math.max(parseInt(rangeModalFromId, 10), parseInt(rangeModalToId, 10))
+
+      if (isNaN(start) || isNaN(end)) {
+        toast.error("Invalid range numbers entered.")
+        return
+      }
+
+      matches = actionOrders.filter(o => {
+        const oNum = parseInt(o.order_number?.replace(/[^0-9]/g, '') || '0', 10)
+        return oNum >= start && oNum <= end
+      })
+
+      if (matches.length === 0) {
+        toast.error(`No paid orders found in range ${start} to ${end}.`)
+        return
+      }
     }
 
     const doc = generateAlternativeCourierPDF(matches)
-    doc.save(`range-orders-${start}-to-${end}.pdf`)
-    toast.success(`Downloaded layout sheet for ${matches.length} orders!`)
+    doc.save(`courier-export-${rangeModalTab}-${new Date().toISOString().split('T')[0]}.pdf`)
+    toast.success(`Downloaded alternative shipping sheet for ${matches.length} orders!`)
+    setShowPrintRangeModal(false)
   }
 
   // Handle Label Generation (Phase 1)
@@ -381,30 +415,66 @@ export default function AdminDispatch() {
         </div>
       </header>
 
-      {/* Tabs */}
-      <div className="flex overflow-x-auto hide-scrollbar gap-2 pb-2">
-        {[
-          { id: 'action', label: 'Action Required', count: actionOrders.length, desc: 'Paid' },
-          { id: 'awaiting', label: 'Awaiting Courier', count: awaitingOrders.length, desc: 'Packed' },
-          { id: 'intransit', label: 'In Transit', count: inTransitOrders.length, desc: 'Shipped' },
-          { id: 'exceptions', label: 'Exceptions', count: exceptionOrders.length, desc: 'Issues' },
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => { setActiveTab(tab.id as any); setSelectedOrderIds([]) }}
-            className={`flex flex-col min-w-[140px] p-3 rounded-2xl border transition-all text-left ${
-              activeTab === tab.id 
-                ? 'bg-[#4A3525] border-[#4A3525] text-white shadow-md' 
-                : 'bg-white border-[#E5C492]/80 text-[#4A3525] hover:bg-[#FAF9F6]'
-            }`}
+      {/* Tabs & Alternative Courier Dropdown Row */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-2">
+        <div className="flex overflow-x-auto hide-scrollbar gap-2 pb-2 flex-1 w-full">
+          {[
+            { id: 'action', label: 'Action Required', count: actionOrders.length, desc: 'Paid' },
+            { id: 'awaiting', label: 'Awaiting Courier', count: awaitingOrders.length, desc: 'Packed' },
+            { id: 'intransit', label: 'In Transit', count: inTransitOrders.length, desc: 'Shipped' },
+            { id: 'exceptions', label: 'Exceptions', count: exceptionOrders.length, desc: 'Issues' },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => { setActiveTab(tab.id as any); setSelectedOrderIds([]) }}
+              className={`flex flex-col min-w-[140px] p-3 rounded-2xl border transition-all text-left ${
+                activeTab === tab.id 
+                  ? 'bg-[#4A3525] border-[#4A3525] text-white shadow-md' 
+                  : 'bg-white border-[#E5C492]/80 text-[#4A3525] hover:bg-[#FAF9F6]'
+              }`}
+            >
+              <div className="flex items-center justify-between w-full">
+                <span className={`text-[10px] font-bold uppercase tracking-widest font-sans ${activeTab === tab.id ? 'text-[#E5C492]' : 'text-[#B37943]'}`}>{tab.label}</span>
+                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${activeTab === tab.id ? 'bg-white/10 text-white' : 'bg-[#FAF3E8] text-[#B37943]'}`}>{tab.count}</span>
+              </div>
+              <span className={`text-[10px] mt-2 opacity-80 ${activeTab === tab.id ? 'text-gray-300' : 'text-[#7B6856]'}`}>{tab.desc}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Alternative Courier Dropdown */}
+        <div className="relative shrink-0 self-end lg:self-center w-full lg:w-auto">
+          <button 
+            onClick={() => setShowAltDropdown(!showAltDropdown)}
+            className="w-full lg:w-auto h-10 px-4 bg-white border border-[#E5C492] hover:bg-[#FAF9F6] text-[#4A3525] rounded-2xl text-[10px] font-sans font-bold uppercase tracking-wider transition-all flex items-center justify-between lg:justify-center gap-1.5 cursor-pointer shadow-sm"
           >
-            <div className="flex items-center justify-between w-full">
-              <span className={`text-[10px] font-bold uppercase tracking-widest font-sans ${activeTab === tab.id ? 'text-[#E5C492]' : 'text-[#B37943]'}`}>{tab.label}</span>
-              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${activeTab === tab.id ? 'bg-white/10 text-white' : 'bg-[#FAF3E8] text-[#B37943]'}`}>{tab.count}</span>
-            </div>
-            <span className={`text-[10px] mt-2 opacity-80 ${activeTab === tab.id ? 'text-gray-300' : 'text-[#7B6856]'}`}>{tab.desc}</span>
+            Alternative Courier
+            <span className={`transition-transform duration-200 ${showAltDropdown ? 'rotate-180' : ''}`}>▼</span>
           </button>
-        ))}
+          
+          {showAltDropdown && (
+            <div className="absolute right-0 mt-2 w-full lg:w-48 bg-white border border-[#E5C492] rounded-2xl shadow-xl z-30 py-2 animate-in fade-in slide-in-from-top-2 duration-150">
+              <button
+                onClick={() => {
+                  handlePrintUnserviceablePDF()
+                  setShowAltDropdown(false)
+                }}
+                className="w-full text-left px-4 py-2.5 text-[10px] font-sans font-bold uppercase tracking-wider text-[#4A3525] hover:bg-[#FAF3E8]/50 transition-colors cursor-pointer"
+              >
+                Print Unserviceable
+              </button>
+              <button
+                onClick={() => {
+                  setShowPrintRangeModal(true)
+                  setShowAltDropdown(false)
+                }}
+                className="w-full text-left px-4 py-2.5 text-[10px] font-sans font-bold uppercase tracking-wider text-[#4A3525] hover:bg-[#FAF3E8]/50 transition-colors border-t border-[#FAF3E8] cursor-pointer"
+              >
+                Print Range
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Courier Serviceability Warnings */}
@@ -524,22 +594,7 @@ export default function AdminDispatch() {
             <FileText className="w-3.5 h-3.5 text-[#B37943]" /> PDF Labels
           </button>
           
-          <div className="relative flex items-center w-full sm:w-auto">
-            <select
-              onChange={(e) => {
-                const val = e.target.value
-                if (val === 'unserviceable') handlePrintUnserviceablePDF()
-                if (val === 'range') handlePrintRangePDF()
-                e.target.value = '' // Reset selection
-              }}
-              defaultValue=""
-              className="w-full sm:w-auto h-9 px-4 bg-white border border-[#E5C492] text-[#4A3525] rounded-xl text-[10px] font-sans font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center outline-none focus:ring-1 focus:ring-[#B37943]/20"
-            >
-              <option value="" disabled>Alternative Courier</option>
-              <option value="unserviceable">Print Unserviceable</option>
-              <option value="range">Print Range</option>
-            </select>
-          </div>
+
         </div>
       </div>
 
@@ -743,6 +798,112 @@ export default function AdminDispatch() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Print Range Modal */}
+      {showPrintRangeModal && (
+        <div className="fixed inset-0 bg-[#4A3525]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden border border-[#E5C492] animate-in zoom-in-95 duration-200">
+            <div className="p-5 bg-[#FAF9F6] border-b border-[#E5C492] flex items-center justify-between">
+              <h3 className="font-serif text-[#4A3525] text-lg font-bold">Print Custom Range</h3>
+              <button 
+                onClick={() => setShowPrintRangeModal(false)} 
+                className="p-1.5 hover:bg-white rounded-xl transition-colors cursor-pointer text-[#4A3525]"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            
+            <div className="p-5 space-y-5">
+              {/* Tab selector */}
+              <div className="flex bg-[#FAF3E8]/50 p-1 rounded-xl border border-[#E5C492]/40">
+                <button
+                  onClick={() => setRangeModalTab('date')}
+                  className={`flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all cursor-pointer ${
+                    rangeModalTab === 'date' 
+                      ? 'bg-[#4A3525] text-white shadow-sm' 
+                      : 'text-[#B37943] hover:text-[#4A3525]'
+                  }`}
+                >
+                  Date Span
+                </button>
+                <button
+                  onClick={() => setRangeModalTab('order')}
+                  className={`flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all cursor-pointer ${
+                    rangeModalTab === 'order' 
+                      ? 'bg-[#4A3525] text-white shadow-sm' 
+                      : 'text-[#B37943] hover:text-[#4A3525]'
+                  }`}
+                >
+                  Order Range
+                </button>
+              </div>
+
+              {/* Form fields based on active tab */}
+              {rangeModalTab === 'date' ? (
+                <div className="space-y-3">
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-[10px] font-bold text-[#B37943] uppercase tracking-widest font-sans">Date Span:</span>
+                    <input
+                      type="date"
+                      value={rangeModalFromDate}
+                      onChange={e => setRangeModalFromDate(e.target.value)}
+                      className="w-full h-10 px-3 bg-[#FAF9F6] border border-[#E5C492] rounded-xl text-xs outline-none text-[#4A3525] font-semibold"
+                    />
+                  </div>
+                  <div className="text-center text-[10px] font-bold text-[#B37943] uppercase tracking-widest font-sans">to</div>
+                  <div className="flex flex-col gap-1.5">
+                    <input
+                      type="date"
+                      value={rangeModalToDate}
+                      onChange={e => setRangeModalToDate(e.target.value)}
+                      className="w-full h-10 px-3 bg-[#FAF9F6] border border-[#E5C492] rounded-xl text-xs outline-none text-[#4A3525] font-semibold"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-[10px] font-bold text-[#B37943] uppercase tracking-widest font-sans">Order Range:</span>
+                    <input
+                      type="number"
+                      placeholder="e.g. 54"
+                      value={rangeModalFromId}
+                      onChange={e => setRangeModalFromId(e.target.value)}
+                      className="w-full h-10 px-3 bg-[#FAF9F6] border border-[#E5C492] rounded-xl text-xs outline-none text-[#4A3525] font-semibold text-center"
+                    />
+                  </div>
+                  <div className="text-center text-[10px] font-bold text-[#B37943] uppercase tracking-widest font-sans">to</div>
+                  <div className="flex flex-col gap-1.5">
+                    <input
+                      type="number"
+                      placeholder="e.g. 65"
+                      value={rangeModalToId}
+                      onChange={e => setRangeModalToId(e.target.value)}
+                      className="w-full h-10 px-3 bg-[#FAF9F6] border border-[#E5C492] rounded-xl text-xs outline-none text-[#4A3525] font-semibold text-center"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex gap-2.5 pt-3 border-t border-[#FAF3E8]">
+                <button
+                  onClick={() => setShowPrintRangeModal(false)}
+                  className="flex-1 h-10 bg-white border border-[#E5C492] text-[#4A3525] hover:bg-[#FAF9F6] rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all active:scale-[0.98] cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDownloadRangePDF}
+                  className="flex-1 h-10 bg-[#4A3525] text-white hover:bg-[#32241b] rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all active:scale-[0.98] cursor-pointer"
+                >
+                  Download
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
