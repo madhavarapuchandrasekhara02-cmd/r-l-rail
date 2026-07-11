@@ -136,6 +136,7 @@ export async function GET(req: NextRequest) {
           // crop it to the exact centered quadrant (153.5 pt x, 205 pt y, 288 pt width, 432 pt height)
           if (width > 500 && height > 700) {
             p.setCropBox(153.5, 205, 288, 432)
+            p.setMediaBox(153.5, 205, 288, 432)
           }
 
           const embedded = await mergedPdf.embedPage(p)
@@ -194,6 +195,9 @@ export async function GET(req: NextRequest) {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `${disposition}; filename="labels-${waybills.split(',')[0]}.pdf"`,
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
       },
     })
   } catch (error: any) {
