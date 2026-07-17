@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { trpc } from '@/providers/trpc'
 import { getPackedWeight } from '@/lib/weight'
 import { generateAlternativeCourierPDF } from '@/lib/alternative_pdf'
+import { downloadBulkLabels } from '@/lib/pdf'
 import { toast } from 'sonner'
 import { jsPDF } from 'jspdf'
 import {
@@ -67,6 +68,7 @@ export default function AdminDispatch() {
   const dispatchOrdersMutation = trpc.dispatch.dispatchOrders.useMutation()
   const schedulePickupMutation = trpc.dispatch.schedulePickup.useMutation()
   const getWaybillsMutation = trpc.dispatch.getWaybills.useMutation()
+  const deleteOrderMutation = trpc.order.delete.useMutation()
 
   useEffect(() => { loadData() }, [])
 
@@ -129,6 +131,9 @@ export default function AdminDispatch() {
     const inTransitOrders = filtered.filter(o => o.status === 'Shipped')
     
     const exceptionOrders = filtered.filter(o => {
+      if (o.status === 'Returned' || o.status === 'RTO') {
+        return true
+      }
       const s = o.shipments?.[0]
       if (!s) return false
       const status = (s.tracking_status || '').toLowerCase()
@@ -206,20 +211,7 @@ export default function AdminDispatch() {
 
   // Helper to securely trigger PDF downloads bypassing popup blockers & cookie limits on mobile
   const triggerLabelDownload = async (waybills: string[]) => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const token = session?.access_token || ''
-      
-      const CHUNK_SIZE = 20
-      for (let i = 0; i < waybills.length; i += CHUNK_SIZE) {
-        const chunk = waybills.slice(i, i + CHUNK_SIZE)
-        const url = `/api/dispatch/labels?waybills=${chunk.join(',')}&token=${encodeURIComponent(token)}`
-        window.open(url, '_blank')
-      }
-    } catch (err) {
-      console.error('Error triggering download:', err)
-      toast.error('Failed to prepare label download')
-    }
+    await downloadBulkLabels(waybills)
   }
 
   const dispatchViaManualCourierMutation = trpc.dispatch.dispatchViaManualCourier.useMutation()
@@ -249,6 +241,22 @@ export default function AdminDispatch() {
       }
     } catch (err: any) {
       toast.error(err.message || 'Failed to dispatch', { id: loadingToastId })
+    }
+  }
+
+  const handleDeleteOrder = async (orderId: string, orderNumber: string) => {
+    if (!window.confirm(`Are you sure you want to permanently delete order ${orderNumber}? This will also delete related items and shipments.`)) {
+      return
+    }
+    try {
+      const res = await deleteOrderMutation.mutateAsync({ id: orderId })
+      if (res.success) {
+        toast.success(`Order ${orderNumber} deleted successfully.`)
+        await loadData()
+      }
+    } catch (err: any) {
+      console.error(err)
+      toast.error(err.message || 'Failed to delete order')
     }
   }
 
@@ -311,9 +319,15 @@ export default function AdminDispatch() {
       }
     }
 
-    const doc = generateAlternativeCourierPDF(matches)
-    doc.save(`courier-export-${rangeModalTab}-${new Date().toISOString().split('T')[0]}.pdf`)
-    toast.success(`Downloaded alternative shipping sheet for ${matches.length} orders!`)
+    const toastId = toast.loading('Generating alternative shipping sheet...')
+    try {
+      const doc = generateAlternativeCourierPDF(matches)
+      doc.save(`courier-export-${rangeModalTab}-${new Date().toISOString().split('T')[0]}.pdf`)
+      toast.success('Alternative shipping sheet downloaded!', { id: toastId })
+    } catch (err) {
+      console.error(err)
+      toast.error('Failed to generate shipping sheet', { id: toastId })
+    }
     setShowPrintRangeModal(false)
   }
 
@@ -525,7 +539,7 @@ export default function AdminDispatch() {
         <div className="flex flex-col sm:flex-row sm:items-center gap-4 w-full md:w-auto">
           <div className="flex items-center justify-between sm:justify-start gap-3 w-full sm:w-auto">
             <div className="flex items-center gap-3">
-              <input type="checkbox" checked={selectedOrderIds.length > 0 && selectedOrderIds.length === currentList.length} onChange={toggleAll} className="rounded border-[#E5C492] text-[#4A3525] focus:ring-[#4A3525] cursor-pointer w-4 h-4" />
+              <input type="checkbox" checked={selectedOrderIds.length > 0 && selectedOrderIds.length === currentList.length} onChange={toggleAll} className="rounded border-[#E5C492] text-[#4A3525] focus:ring-[#4A3525] cursor-pointer w-5 h-5 md:w-4 md:h-4" />
               <span className="text-xs font-bold text-[#4A3525] uppercase tracking-widest font-sans">{selectedOrderIds.length} Selected</span>
             </div>
             
@@ -631,12 +645,16 @@ export default function AdminDispatch() {
                     e.stopPropagation();
                     toggleOrder(o.id);
                   }} 
-                  className="mt-1 rounded border-[#E5C492] text-[#4A3525] focus:ring-[#4A3525] cursor-pointer shrink-0" 
+                  className="mt-1 rounded border-[#E5C492] text-[#4A3525] focus:ring-[#4A3525] cursor-pointer shrink-0 w-5 h-5 md:w-4 md:h-4" 
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs font-bold text-[#4A3525] truncate">{o.order_number}</span>
-                    <span className="text-[9px] font-bold font-sans uppercase tracking-widest text-[#B37943] shrink-0">{o.status}</span>
+                    <span className={`text-[9px] font-bold font-sans uppercase tracking-widest px-2 py-0.5 rounded-full border shrink-0 ${
+                      o.status === 'Returned' ? 'bg-purple-50 text-purple-700 border-purple-100' :
+                      o.status === 'RTO' ? 'bg-rose-50 text-rose-700 border-rose-100' :
+                      'text-[#B37943] border-transparent'
+                    }`}>{o.status}</span>
                   </div>
                   <div className="text-[10px] text-[#4A3525] font-semibold mt-1 truncate">{o.customer_name}</div>
                   <div className="text-[10px] text-[#7B6856] mt-0.5 break-words whitespace-normal leading-relaxed">{o.address}, {o.city} - {o.pincode}</div>
@@ -653,6 +671,16 @@ export default function AdminDispatch() {
                           Dispatch (Manual)
                         </button>
                       )}
+                    </div>
+                  )}
+                  {(o.status === 'Returned' || o.status === 'RTO') && (
+                    <div className="flex items-center justify-end mt-2">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDeleteOrder(o.id, o.order_number) }}
+                        className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[9px] font-sans font-bold uppercase tracking-wider active:scale-[0.98] transition-all cursor-pointer"
+                      >
+                        Delete Order
+                      </button>
                     </div>
                   )}
                 </div>
@@ -696,6 +724,8 @@ export default function AdminDispatch() {
                         o.status === 'Packed' ? 'bg-orange-50 text-orange-700 border-orange-100' :
                         o.status === 'Shipped' ? 'bg-blue-50 text-blue-700 border-blue-100' :
                         o.status === 'Paid' ? 'bg-green-50 text-green-700 border-green-100' :
+                        o.status === 'Returned' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                        o.status === 'RTO' ? 'bg-rose-50 text-rose-700 border-rose-200' :
                         'bg-gray-50 text-gray-700 border-gray-100'
                       }`}>
                         {o.status}
@@ -720,9 +750,27 @@ export default function AdminDispatch() {
                               <button onClick={() => triggerLabelDownload([o.shipments[0].waybill])} className="text-[9px] text-[#4A3525] hover:text-[#B37943] uppercase tracking-widest font-bold underline cursor-pointer">Download</button>
                             </>
                           )}
+                          {(o.status === 'Returned' || o.status === 'RTO') && (
+                            <button
+                              onClick={() => handleDeleteOrder(o.id, o.order_number)}
+                              className="mt-1 px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[9px] font-sans font-bold uppercase tracking-wider active:scale-[0.98] transition-all cursor-pointer flex items-center gap-1 shrink-0 shadow-sm"
+                            >
+                              Delete Order
+                            </button>
+                          )}
                         </div>
                       ) : (
-                        <span className="text-[9px] text-gray-400 font-sans uppercase tracking-widest">None</span>
+                        <div className="flex flex-col items-end gap-1">
+                          <span className="text-[9px] text-gray-400 font-sans uppercase tracking-widest">None</span>
+                          {(o.status === 'Returned' || o.status === 'RTO') && (
+                            <button
+                              onClick={() => handleDeleteOrder(o.id, o.order_number)}
+                              className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[9px] font-sans font-bold uppercase tracking-wider active:scale-[0.98] transition-all cursor-pointer flex items-center gap-1 shrink-0 shadow-sm"
+                            >
+                              Delete Order
+                            </button>
+                          )}
+                        </div>
                       )}
                     </td>
                   </tr>

@@ -35,8 +35,9 @@ export function getPackedWeight(variantLabel: string): number {
 
   const lower = variantLabel.toLowerCase().trim()
 
-  // 1. Try direct lookup first (fastest)
-  for (const [key, weight] of Object.entries(WEIGHT_MAP)) {
+  // 1. Try direct lookup first, sorting by key length descending to prevent partial matches (e.g. "50ml" matching inside "250ml")
+  const sortedEntries = Object.entries(WEIGHT_MAP).sort((a, b) => b[0].length - a[0].length)
+  for (const [key, weight] of sortedEntries) {
     if (lower.includes(key)) return weight
   }
 

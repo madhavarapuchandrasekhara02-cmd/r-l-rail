@@ -1,57 +1,59 @@
 import { z } from 'zod'
-import { createRouter, publicQuery } from '../trpc-middleware'
+import { createRouter, publicQuery, publicMutation } from '../trpc-middleware'
 import { supabaseAdmin } from '../lib/supabase-admin'
 import { env } from '../../src/lib/env'
 
 export const orderRouter = createRouter({
   // Secure Guest Tracking: resolves phone number/order number and returns specific records securely
   track: publicQuery
-    .input(z.object({ query: z.string().trim().max(100) }))
+    .input(
+      z.object({
+        query: z.string().trim().min(1).max(100),
+      })
+    )
     .query(async ({ input }) => {
       try {
         const cleanQuery = input.query.trim()
-        if (!cleanQuery) throw new Error('Search query is empty')
+        if (!cleanQuery) throw new Error('Search query is required')
 
-        // Normalize Order ID: handles "ral1", "ral-1", "RaL 1", "RAL_1" -> "RAL-1"
-        // This allows extremely fast exact-match (.eq) lookups instead of slow .ilike scans.
-        let normalizedOrderNumber = cleanQuery;
-        const orderMatch = cleanQuery.match(/^RAL[\s\-_]*(\d+)$/i);
-        if (orderMatch) {
-          normalizedOrderNumber = `RAL-${orderMatch[1]}`;
-        } else {
-          normalizedOrderNumber = cleanQuery.toUpperCase();
-        }
-
+        // 1. Detect if the query is a phone number (checking digits count)
         const digitsOnly = cleanQuery.replace(/\D/g, '')
-        let phone10 = digitsOnly
-        if (digitsOnly.length === 12 && digitsOnly.startsWith('91')) {
+        let phone10 = ''
+        if (digitsOnly.length === 10) {
+          phone10 = digitsOnly
+        } else if (digitsOnly.length === 12 && digitsOnly.startsWith('91')) {
           phone10 = digitsOnly.substring(2)
         } else if (digitsOnly.length === 11 && digitsOnly.startsWith('0')) {
           phone10 = digitsOnly.substring(1)
         }
 
-        const lookupFilters = [
-          `order_number.eq.${normalizedOrderNumber}`,
-          `order_number.eq.${cleanQuery}`,
-          `customer_phone.eq.${cleanQuery}`
-        ]
+        const isPhone = phone10.length === 10
 
-        if (phone10.length === 10) {
-          lookupFilters.push(
-            `customer_phone.eq.${phone10}`,
-            `customer_phone.eq.+91${phone10}`,
-            `customer_phone.eq.91${phone10}`,
-            `customer_phone.eq.0${phone10}`
-          )
+        let queryBuilder = supabaseAdmin
+          .from('orders')
+          .select('id, order_number, status, created_at, total, delivery_charge, order_items(id, product_name, quantity, variant_label, price), shipments(courier_partner, tracking_status, tracking_url, waybill)')
+
+        if (isPhone) {
+          const phoneFormats = [
+            phone10,
+            `+91${phone10}`,
+            `91${phone10}`,
+            `0${phone10}`
+          ]
+          queryBuilder = queryBuilder.in('customer_phone', phoneFormats)
+        } else {
+          // Normalize Order ID: handles "ral1", "ral-1", "RaL 1", "RAL_1" -> "RAL-1"
+          let normalizedOrderNumber = cleanQuery;
+          const orderMatch = cleanQuery.match(/^RAL[\s\-_]*(\d+)$/i);
+          if (orderMatch) {
+            normalizedOrderNumber = `RAL-${orderMatch[1]}`;
+          } else {
+            normalizedOrderNumber = cleanQuery.toUpperCase();
+          }
+          queryBuilder = queryBuilder.eq('order_number', normalizedOrderNumber)
         }
 
-        const orFilter = lookupFilters.join(',')
-
-        const { data, error } = await supabaseAdmin
-          .from('orders')
-          .select('id, order_number, status, created_at, customer_name, total, delivery_charge, order_items(product_name, quantity, variant_label), shipments(carrier_name, tracking_status, tracking_link)')
-          .or(orFilter)
-          .order('created_at', { ascending: false })
+        const { data, error } = await queryBuilder.order('created_at', { ascending: false })
 
         if (error) throw error
         return { orders: data || [], success: true }
@@ -61,7 +63,7 @@ export const orderRouter = createRouter({
     }),
 
   // Secure Server-Side Checkout: verifies inventory, secures pricing, calculates rounded taxes, creates transactions
-  create: publicQuery
+  create: publicMutation
     .input(
       z.object({
         customerName: z.string().trim().min(1).max(100),

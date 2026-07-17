@@ -32,11 +32,11 @@ export async function POST(req: Request) {
       const razorpayOrderId = payment?.order_id
 
       if (razorpayOrderId) {
-        // Find order associated with this Razorpay Order ID
+        // Find order associated with this Razorpay Order ID using exact indexed match
         const { data: order, error: findErr } = await supabaseAdmin
           .from('orders')
           .select('id, status, total')
-          .like('payment_method', `%${razorpayOrderId}%`)
+          .eq('payment_method', `razorpay_order:${razorpayOrderId}`)
           .single()
 
         if (findErr || !order) {
@@ -68,6 +68,14 @@ export async function POST(req: Request) {
           console.log(`[Razorpay Webhook] Successfully marked Order ${order.id} as Paid via Webhook`)
         }
       }
+    }
+    if (event === 'payment.failed') {
+      const payment = payload.payload.payment?.entity
+      const razorpayOrderId = payment?.order_id
+      if (razorpayOrderId) {
+        console.log(`[Razorpay Webhook] Payment failed for order ${razorpayOrderId}. Reason: ${payment?.error_description || 'Unknown'}. Order remains Pending for retry.`)
+      }
+      return NextResponse.json({ success: true, message: 'Failure logged' })
     }
 
     return NextResponse.json({ success: true })

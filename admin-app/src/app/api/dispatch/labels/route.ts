@@ -8,15 +8,7 @@ const DELHIVERY_API_TOKEN = env.DELHIVERY_API_TOKEN
 const DELHIVERY_BASE = env.DELHIVERY_BASE_URL
 
 function extractToken(req: NextRequest): string {
-  // Fallback to query token for mobile window.open contexts
-  const { searchParams } = new URL(req.url)
-  const queryToken = searchParams.get('token')
-  if (queryToken) return queryToken
-
-  const authHeader = req.headers.get("authorization");
-  if (authHeader && authHeader.startsWith("Bearer ")) {
-    return authHeader.substring(7);
-  }
+  // 1. Try secure cookie first
   const cookieHeader = req.headers.get("cookie") || "";
   const cookies = Object.fromEntries(
     cookieHeader.split(";").map((c) => {
@@ -24,9 +16,22 @@ function extractToken(req: NextRequest): string {
       return [parts[0], parts.slice(1).join("=")];
     })
   );
-  return cookies["sb-access-token"]
-    ? decodeURIComponent(cookies["sb-access-token"])
-    : "";
+  if (cookies["sb-access-token"]) {
+    return decodeURIComponent(cookies["sb-access-token"]);
+  }
+
+  // 2. Try Authorization header
+  const authHeader = req.headers.get("authorization");
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    return authHeader.substring(7);
+  }
+
+  // 3. Fallback to query parameter (deprecated)
+  const { searchParams } = new URL(req.url)
+  const queryToken = searchParams.get('token')
+  if (queryToken) return queryToken
+
+  return "";
 }
 
 export async function GET(req: NextRequest) {

@@ -233,7 +233,7 @@ export default function Page() {
 
           <h2>About Roots & Leaves</h2>
           <p>
-            Roots & Leaves (legal name: Ayushyaa Foods & Naturals) is a premium botanical wellness company 
+            Roots & Leaves is a premium botanical wellness company 
             founded to preserve and share the ancient Ayurvedic hair care rituals of South India. 
             All our products are 100% natural, chemical-free, and meticulously handcrafted in our 
             Gajuwaka, Visakhapatnam studio. We believe in complete transparency and pure botanical efficacy.

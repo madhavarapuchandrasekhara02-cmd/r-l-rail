@@ -1,89 +1,128 @@
 import { jsPDF } from 'jspdf'
 
+const getShortItemText = (item: any) => {
+  const rawSize = item.variant_label ? item.variant_label.trim().toLowerCase() : "";
+  let sizeStr = "";
+  if (rawSize && rawSize !== "standard" && rawSize !== "std" && rawSize !== "default") {
+    const cleanedSize = item.variant_label
+      .replace(/\s+/g, "") // Remove spaces
+      .replace(/grams?/gi, "g")
+      .replace(/gms?/gi, "g")
+      .replace(/kilograms?/gi, "kg")
+      .replace(/kgs?/gi, "kg")
+      .replace(/milliliters?/gi, "ml")
+      .replace(/mls?/gi, "ml");
+    sizeStr = ` (${cleanedSize})`;
+  }
+  return `• ${item.product_name}${sizeStr} x${item.quantity}`;
+};
+
 export function generateAlternativeCourierPDF(orders: any[]) {
-  const doc = new jsPDF('p', 'mm', 'a4')
-  
-  const colWidth = 85
-  const rowHeight = 85
-  const marginX = 14
-  const marginY = 10
-  const gapX = 12
-  const gapY = 6
+  const doc = new jsPDF('p', 'mm', 'a4') as any
+
+  const cardWidth = 94
+  const cardHeight = 89
 
   orders.forEach((order, idx) => {
-    const quadrantIndex = idx % 6
+    const pageItemIdx = idx % 6
 
-    if (idx > 0 && quadrantIndex === 0) {
+    if (idx > 0 && pageItemIdx === 0) {
       doc.addPage()
     }
 
-    // 3x2 Quadrant layout:
-    // q=0,1: row 0 (top)
-    // q=2,3: row 1 (middle)
-    // q=4,5: row 2 (bottom)
-    const row = Math.floor(quadrantIndex / 2) // 0, 1, or 2
-    const col = quadrantIndex % 2 // 0 or 1
+    const col = pageItemIdx % 2 // 0 for Left, 1 for Right
+    const row = Math.floor(pageItemIdx / 2) // 0 for Top, 1 for Middle, 2 for Bottom
 
-    const colX = marginX + col * (colWidth + gapX)
-    const rowY = marginY + row * (rowHeight + gapY)
+    // Precise Layout Offsets
+    const colX = col === 0 ? 8 : 108
+    const rowY = 8 + (row * 95)
 
-    // Set bold font for field titles
+    // 1. Draw Grid Outlines (Dashed cut lines)
+    doc.setDrawColor(180, 180, 180)
+    doc.setLineWidth(0.3)
+    doc.setLineDash([2, 2], 0)
+    doc.rect(colX, rowY, cardWidth, cardHeight)
+    doc.setLineDash([]) // Reset to solid line
+
+    // 2. Header Section (Order ID in Forest Green)
+    doc.setTextColor(15, 81, 50) // Forest Green
     doc.setFont("helvetica", "bold")
-    doc.setFontSize(10)
-    doc.text("Order ID:", colX, rowY)
-    
-    doc.setFont("helvetica", "normal")
-    doc.setFontSize(9.5)
-    doc.text(` ${order.order_number}`, colX + 16, rowY)
+    doc.setFontSize(11)
+    doc.text(`Order ID: ${order.order_number}`, colX + 8, rowY + 9)
 
-    doc.setFont("helvetica", "bold")
-    doc.setFontSize(10)
-    doc.text("Customer:", colX, rowY + 5.5)
-    doc.setFont("helvetica", "normal")
-    doc.setFontSize(9.5)
-    doc.text(` ${order.customer_name}`, colX + 18, rowY + 5.5)
+    // Reset color to Off-Black for body text
+    doc.setTextColor(33, 37, 41)
 
+    // 3. Customer Details
     doc.setFont("helvetica", "bold")
-    doc.setFontSize(10)
-    doc.text("Mobile:", colX, rowY + 11)
+    doc.setFontSize(11)
+    doc.text("Customer: ", colX + 8, rowY + 16)
     doc.setFont("helvetica", "normal")
-    doc.setFontSize(9.5)
-    doc.text(` ${order.customer_phone}`, colX + 13, rowY + 11)
+    doc.text(order.customer_name || '', colX + 28, rowY + 16)
 
+    // 4. Mobile Details
     doc.setFont("helvetica", "bold")
-    doc.setFontSize(10)
-    doc.text("Address:", colX, rowY + 16.5)
+    doc.setFontSize(11)
+    doc.text("Mobile: ", colX + 8, rowY + 21.5)
     doc.setFont("helvetica", "normal")
-    doc.setFontSize(9.5)
-    
+    doc.text(order.customer_phone || '', colX + 22, rowY + 21.5)
+
+    // 5. Address Details
+    doc.setFont("helvetica", "bold")
+    doc.setFontSize(11)
+    doc.text("Address: ", colX + 8, rowY + 27)
+    doc.setFont("helvetica", "normal")
+
     const fullAddress = `${order.address || ''}, ${order.city || ''}, ${order.state || ''} - ${order.pincode || ''}${order.landmark ? `, Landmark: ${order.landmark}` : ''}`
-    const wrappedAddress = doc.splitTextToSize(fullAddress, colWidth - 2)
-    doc.text(wrappedAddress, colX, rowY + 21.5)
-
-    const addressHeight = wrappedAddress.length * 4.5
-    const itemsY = rowY + 21.5 + addressHeight + 2
-
-    doc.setFont("helvetica", "bold")
-    doc.setFontSize(10)
-    doc.text("Items :", colX, itemsY)
-    doc.setFont("helvetica", "normal")
-    doc.setFontSize(9.5)
-
-    let itemOffset = 5
-    order.order_items?.forEach((item: any) => {
-      const itemText = `• ${item.product_name} (${item.variant_label || 'Standard'}) x ${item.quantity}`
-      const wrappedItem = doc.splitTextToSize(itemText, colWidth - 5)
-      doc.text(wrappedItem, colX + 3, itemsY + itemOffset)
-      itemOffset += (wrappedItem.length * 4.5)
+    const wrappedAddress = doc.splitTextToSize(fullAddress, cardWidth - 16)
+    
+    // Print wrapped address lines using 5mm height offset
+    wrappedAddress.forEach((line: string, lineIdx: number) => {
+      doc.text(line, colX + 8, rowY + 32 + (lineIdx * 5))
     })
 
-    // Draw horizontal separator line below row 0 and row 1 (do not draw below row 2)
-    if (row < 2) {
-      doc.setDrawColor(180, 180, 180)
-      doc.setLineWidth(0.4)
-      doc.line(colX, rowY + rowHeight + 3, colX + colWidth, rowY + rowHeight + 3)
+    // 6. Dynamic Items Section
+    const itemsHeaderY = rowY + 32 + (wrappedAddress.length * 5) + 3
+
+    doc.setFont("helvetica", "bold")
+    doc.setFontSize(11)
+    doc.text("Items :", colX + 8, itemsHeaderY)
+
+    // Adaptive font size & row height based on item count to fit the 89mm card height
+    const itemsCount = order.order_items?.length || 0
+    let fontSize = 11
+    let rowSpacing = 6.5
+
+    if (itemsCount === 3) {
+      fontSize = 9.5
+      rowSpacing = 5.2
+    } else if (itemsCount >= 4 && itemsCount <= 6) {
+      fontSize = 8.5
+      rowSpacing = 4.5
+    } else if (itemsCount > 6) {
+      fontSize = 7.2
+      rowSpacing = 3.6
     }
+
+    doc.setFont("helvetica", "normal")
+    doc.setFontSize(fontSize)
+
+    let currentItemY = itemsHeaderY + rowSpacing
+    order.order_items?.forEach((item: any) => {
+      const itemText = getShortItemText(item)
+      // Wrap item text to fit inside card margins (cardWidth - 16 = 78mm)
+      const wrappedItem = doc.splitTextToSize(itemText, cardWidth - 16)
+      
+      wrappedItem.forEach((line: string) => {
+        // Guard to prevent printing outside the 89mm box boundary
+        if (currentItemY < rowY + cardHeight - 3) {
+          doc.text(line, colX + 11, currentItemY)
+          currentItemY += rowSpacing
+        }
+      })
+    })
   })
 
   return doc
 }
+

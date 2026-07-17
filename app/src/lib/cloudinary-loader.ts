@@ -8,9 +8,9 @@ export default function cloudinaryLoader({
   width: number
   quality?: number
 }) {
-  // If the source image is not hosted on Cloudinary, pass it through directly
+  // If the source image is not hosted on Cloudinary, pass it through directly with a width parameter to satisfy Next.js
   if (!src.includes('res.cloudinary.com')) {
-    return src
+    return src.includes('?') ? `${src}&w=${width}` : `${src}?w=${width}`
   }
 
   // Normalize duplicate slashes or protocols if any
@@ -28,11 +28,13 @@ export default function cloudinaryLoader({
   const prefix = cleanSrc.substring(0, uploadIndex + uploadMarker.length)
   const suffix = cleanSrc.substring(uploadIndex + uploadMarker.length)
 
-  // Configure transformations: resize to target width, compress quality, and auto-format (avif/webp/png)
+  // Enforce a minimum width of 640px to ensure pixel-perfect label readability on 2x/3x Retina screens
+  const targetWidth = width < 640 ? 640 : width
+
   const params = [
-    `w_${width}`,
+    `w_${targetWidth}`,
     `c_limit`,
-    `q_${quality || 'auto'}`,
+    `q_85`, // Force high quality to prevent text artifacts and keep fine label print crisp
     'f_auto'
   ].join(',')
 

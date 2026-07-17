@@ -8,6 +8,8 @@ import { LayoutDashboard, Package, ClipboardList, Boxes, Truck, LogOut, Menu, X,
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '@/lib/supabase'
 
+import { trpc } from '@/providers/trpc'
+
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const location = usePathname()
   const router = useRouter()
@@ -15,6 +17,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [mobileOpen, setMobileOpen] = useState(false)
   const [session, setSession] = useState<any>(null)
   const isLoginPage = location === '/login' || location === '/login/'
+
+  const { refetch: checkRole } = trpc.verifyAdmin.useQuery(undefined, {
+    enabled: false,
+    retry: false,
+  })
 
   useEffect(() => {
     if (isLoginPage) { 
@@ -27,26 +34,24 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       if (!data.session) {
         router.push('/login')
       } else {
-        const userEmail = (data.session.user.email || "").toLowerCase()
-        const adminEmails = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || "")
-          .split(",")
-          .map((e) => e.trim().toLowerCase())
-          .filter(Boolean)
+        // Set cookie first so the backend API can authorize the request
+        document.cookie = `sb-access-token=${encodeURIComponent(data.session.access_token)}; path=/; max-age=86400`
 
-        if (adminEmails.length > 0 && !adminEmails.includes(userEmail)) {
+        try {
+          const res = await checkRole()
+          if (res.error) throw res.error
+          
+          setSession(data.session)
+          setLoading(false)
+        } catch (err) {
           alert("Access Denied: You are not authorized to access the admin portal.")
           await supabase.auth.signOut()
           router.push('/login')
-          return
         }
-
-        document.cookie = `sb-access-token=${encodeURIComponent(data.session.access_token)}; path=/; max-age=86400`
-        setSession(data.session)
-        setLoading(false)
       }
     }
     checkAuth()
-  }, [router, isLoginPage, location])
+  }, [router, isLoginPage, location, checkRole])
 
 
 
@@ -71,6 +76,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { icon: FileText, label: 'Label Center', href: '/labels' },
     { icon: BarChart3, label: 'Analytics', href: '/analytics' },
   ]
+
+  const currentNav = [...primaryNavItems, ...advancedNavItems].find(item => item.href === location || (item.href !== '/' && location?.startsWith(item.href)))
+  const pageTitle = currentNav?.label || 'Roots & Leaves'
 
   // Login page — skip layout chrome entirely
   if (isLoginPage) return <>{children}</>
@@ -247,7 +255,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Mobile Top Bar */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-[#FAF9F6]/90 backdrop-blur-xl border-b border-[#E5C492]">
         <div className="flex items-center justify-between px-6 py-2">
-          <div></div>
+          <span className="text-base font-serif font-bold text-[#4A3525] tracking-wide">{pageTitle}</span>
           <button 
             onClick={() => setMobileOpen(true)}
             className="p-2 hover:bg-white/50 rounded-xl transition-colors text-[#4A3525]"

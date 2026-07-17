@@ -40,7 +40,7 @@ export type Order = {
   state: string
   pincode: string
   landmark: string | null
-  status: 'Pending' | 'Processing' | 'Paid' | 'Packed' | 'Shipped' | 'Delivered' | 'Cancelled'
+  status: 'Pending' | 'Paid' | 'Packed' | 'Shipped' | 'Delivered' | 'Cancelled'
   total: number
   delivery_charge: number
   payment_method: string

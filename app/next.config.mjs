@@ -12,7 +12,7 @@ const nextConfig = {
     optimizePackageImports: ["framer-motion", "@radix-ui/react-accordion"],
   },
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
 
   // ── Image Optimization ───────────────────────────────────────────────────

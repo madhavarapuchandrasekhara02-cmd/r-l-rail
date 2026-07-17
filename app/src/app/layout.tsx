@@ -4,6 +4,7 @@ import Script from "next/script";
 import { Cormorant_Garamond, DM_Sans } from "next/font/google";
 import "@/index.css";
 import WhatsAppButton from "@/components/WhatsAppButton";
+import ChatruvedaBadge from "@/components/ChatruvedaBadge";
 import { Toaster } from "sonner";
 import SchemaOrg from "@/components/SchemaOrg";
 import {
@@ -39,8 +40,6 @@ const dmSans = DM_Sans({
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
 };
 
 export const metadata: Metadata = {
@@ -54,7 +53,6 @@ export const metadata: Metadata = {
     "Experience the epitome of pure, luxurious Ayurvedic wellness. Roots & Leaves offers handcrafted, 100% natural hair and face care rituals. Discover the ancient secrets of true beauty.",
   keywords: [
     "Roots and Leaves",
-    "Ayushyaa Foods and Naturals",
     "herbal hair oil",
     "herbal shampoo",
     "ayurvedic hair care",
@@ -90,8 +88,8 @@ export const metadata: Metadata = {
     "premium chia seeds online",
     "best ayurvedic brand for hair growth oil and shampoo"
   ].join(", "),
-  authors: [{ name: "Ayushyaa Foods & Naturals", url: BRAND.url }],
-  creator: "Ayushyaa Foods & Naturals",
+  authors: [{ name: "Roots & Leaves", url: BRAND.url }],
+  creator: "Roots & Leaves",
   publisher: "Roots & Leaves",
   robots: {
     index: true,
@@ -251,6 +249,7 @@ export default function RootLayout({
           {children}
           <Toaster position="top-right" richColors />
           <WhatsAppButton />
+          <ChatruvedaBadge />
         </TRPCProvider>
         <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="afterInteractive" />
       </body>

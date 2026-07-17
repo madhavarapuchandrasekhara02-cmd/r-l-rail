@@ -178,11 +178,32 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="flex flex-col items-center gap-4 pb-6 pt-8">
+        <div className="flex flex-col items-center gap-3 pb-28 md:pb-12 pt-8">
           <div className="text-[var(--footer-gold)] opacity-30 text-xl font-light">𑁍</div>
-          <p className="text-[9px] md:text-[10px] uppercase tracking-[0.35em] text-[#FDFBF7]/20 font-semibold text-center">
-            © 2026 Ayushyaa Foods & Naturals — Handcrafted with Intention
+          <p className="text-[9px] md:text-[10px] uppercase tracking-[0.35em] text-[#FDFBF7]/25 font-semibold text-center leading-relaxed max-w-[90%]">
+            © 2026 Roots & Leaves — Handcrafted with Intention
           </p>
+          
+          {/* Premium Designer Badge & Tooltip */}
+          <div className="relative group mt-3">
+            <a 
+              href="https://wa.me/919573826186?text=Hi%20Chatruveda%20Technologies!%20I%20saw%20your%20work%20on%20Roots%20%26%20Leaves%20and%20would%20like%20to%20discuss%20a%20project." 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-[var(--footer-gold)]/20 bg-[#FDFBF7]/5 hover:bg-[var(--footer-gold)]/10 hover:border-[var(--footer-gold)]/40 hover:text-white transition-all duration-300 text-[8px] md:text-[9px] uppercase tracking-[0.25em] text-[var(--footer-gold)] font-bold group-hover:scale-105 active:scale-95 shadow-sm"
+            >
+              <span className="text-[10px] animate-pulse select-none">🌿</span>
+              <span>Designed & Developed by Chatruveda Technologies</span>
+            </a>
+            
+            {/* Custom Tooltip */}
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 px-3.5 py-2 bg-[#172518] border border-[var(--footer-gold)]/30 rounded-md text-[9px] text-[#FDFBF7] uppercase tracking-wider font-semibold whitespace-nowrap shadow-2xl opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 pointer-events-none flex items-center gap-1.5 z-50">
+              <span>Want to talk to the developer?</span>
+              <span className="text-[11px] animate-bounce">💬</span>
+              {/* Tooltip Arrow */}
+              <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#172518] content-['']"></div>
+            </div>
+          </div>
         </div>
       </div>
     </footer>

@@ -1,8 +1,9 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowRight, Plus, Minus, ShoppingCart } from 'lucide-react'
-import { useCart } from '@/lib/store'
+import { useCart, useUIStore } from '@/lib/store'
 import { getProductImage } from '@/lib/cloudinary';
 
 export type ProductCardProps = {
@@ -39,6 +40,8 @@ export default function ProductCard({ id, name, slug, category, images, minPrice
       quantity: 1,
       image: imageUrl
     })
+    
+    useUIStore.getState().setCartOpen(true)
   }
 
   const handleUpdateQty = (e: React.MouseEvent, newQty: number) => {
@@ -60,12 +63,13 @@ export default function ProductCard({ id, name, slug, category, images, minPrice
                 <div className="w-5 h-5 border-2 border-[#B37943]/20 border-t-[#B37943] rounded-full animate-spin" />
               </div>
             )}
-            <img
-              src={getProductImage(imageUrl)}
+            <Image
+              src={imageUrl}
               alt={`${name} — Roots & Leaves premium herbal ${category.replace('-', ' ')} product`}
-              loading="lazy"
               width={600}
               height={750}
+              sizes="(max-width: 767px) 50vw, (max-width: 1023px) 33vw, 300px"
+              priority={false}
               onLoad={() => setImgLoaded(true)}
               className={`w-full h-full object-cover object-center group-hover:scale-[1.03] transition-all duration-[600ms] ease-out ${
                 imgLoaded ? 'opacity-100 blur-none' : 'opacity-0 blur-md scale-95'
@@ -82,7 +86,7 @@ export default function ProductCard({ id, name, slug, category, images, minPrice
       
       <div className="flex flex-col flex-1 px-1">
         <Link href={`/product/${slug}`}>
-          <h3 className="product-card-title text-[15px] md:text-[17px] font-serif text-[#4A3525] line-clamp-2 leading-snug group-hover:text-[#B37943] transition-colors duration-300">
+          <h3 className="product-card-title text-[13px] md:text-[17px] font-serif text-[#4A3525] line-clamp-2 leading-snug group-hover:text-[#B37943] transition-colors duration-300">
             {name}
           </h3>
         </Link>
@@ -99,7 +103,7 @@ export default function ProductCard({ id, name, slug, category, images, minPrice
               <button
                 key={v.id}
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); setSelectedVariant(v); }}
-                className={`px-3 py-1.5 text-[9px] font-bold uppercase tracking-widest rounded-lg transition-all duration-250 border cursor-pointer ${
+                className={`px-2.5 py-1.5 md:px-3 md:py-1.5 text-[10px] md:text-[9px] font-bold uppercase tracking-widest rounded-lg transition-all duration-250 border cursor-pointer min-h-[30px] md:min-h-0 ${
                   selectedVariant?.id === v.id
                     ? 'bg-[#4A3525] border-[#4A3525] text-[#FAF9F6] shadow-md'
                     : 'bg-transparent border-[#E5C492]/30 text-[#8B7355] hover:border-[#B37943] hover:text-[#4A3525]'

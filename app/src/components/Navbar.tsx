@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { ShoppingCart, Menu, X } from "lucide-react";
+import { ShoppingCart, Menu, X, Home, Compass, Truck } from "lucide-react";
 import { useCart, useUIStore } from "@/lib/store";
 
 const NAV_LINKS = [
@@ -137,6 +137,38 @@ export default function Navbar() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* MOBILE BOTTOM NAVIGATION BAR */}
+      {!pathname?.startsWith('/product/') && (
+        <div className="mobile-bottom-nav lg:hidden">
+          <Link href="/" className={`mobile-bottom-nav-item ${pathname === '/' ? 'mobile-bottom-nav-item--active' : ''}`}>
+            <Home size={20} strokeWidth={1.5} className="mb-0.5" />
+            <span>Home</span>
+          </Link>
+          <Link href="/shop" className={`mobile-bottom-nav-item ${pathname?.startsWith('/shop') ? 'mobile-bottom-nav-item--active' : ''}`}>
+            <Compass size={20} strokeWidth={1.5} className="mb-0.5" />
+            <span>Shop</span>
+          </Link>
+          <button 
+            onClick={() => useUIStore.getState().setCartOpen(true)}
+            className="mobile-bottom-nav-item bg-transparent border-none outline-none"
+          >
+            <div className="relative flex items-center justify-center w-8 h-6">
+              <ShoppingCart size={20} strokeWidth={1.5} className="mb-0.5" />
+              {itemCount > 0 && (
+                <span className="absolute -top-1.5 -right-1 w-4 h-4 bg-[#B89B72] text-[#FDFBF7] text-[10px] flex items-center justify-center rounded-full font-bold shadow-sm">
+                  {itemCount}
+                </span>
+              )}
+            </div>
+            <span>Cart</span>
+          </button>
+          <Link href="/track" className={`mobile-bottom-nav-item ${pathname === '/track' ? 'mobile-bottom-nav-item--active' : ''}`}>
+            <Truck size={20} strokeWidth={1.5} className="mb-0.5" />
+            <span>Track</span>
+          </Link>
+        </div>
+      )}
     </>
   );
 }

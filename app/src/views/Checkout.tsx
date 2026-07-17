@@ -1,8 +1,9 @@
 "use client";
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ShoppingBag, ChevronRight, MapPin, Truck, CreditCard, ShieldCheck, CheckCircle2, ArrowLeft, ArrowRight, Minus, Plus, Trash2 } from 'lucide-react'
+import { ShoppingBag, ChevronRight, ChevronDown, MapPin, Truck, CreditCard, ShieldCheck, CheckCircle2, ArrowLeft, ArrowRight, Minus, Plus, Trash2 } from 'lucide-react'
 import { useCart } from '@/lib/store'
 import { supabase } from '@/lib/supabase'
 import PageWrapper from '@/components/PageWrapper'
@@ -16,12 +17,12 @@ const fadeUp = {
 }
 
 const INDIAN_STATES = [
-  'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa', 'Gujarat', 
-  'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala', 'Madhya Pradesh', 
-  'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Punjab', 
-  'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura', 'Uttar Pradesh', 
-  'Uttarakhand', 'West Bengal', 'Andaman and Nicobar Islands', 'Chandigarh', 
-  'Dadra and Nagar Haveli and Daman and Diu', 'Delhi', 'Jammu and Kashmir', 'Ladakh', 'Lakshadweep', 'Puducherry'
+  'Andhra Pradesh', 'Telangana', 'Karnataka', 'Tamil Nadu',
+  'Andaman and Nicobar Islands', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chandigarh', 'Chhattisgarh', 
+  'Dadra and Nagar Haveli and Daman and Diu', 'Delhi', 'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 
+  'Jammu and Kashmir', 'Jharkhand', 'Kerala', 'Ladakh', 'Lakshadweep', 'Madhya Pradesh', 'Maharashtra', 
+  'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Puducherry', 'Punjab', 'Rajasthan', 'Sikkim', 
+  'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal'
 ]
 
 export default function Checkout() {
@@ -41,6 +42,7 @@ export default function Checkout() {
     zipCode: ''
   })
   const [browserConfirmed, setBrowserConfirmed] = useState(false)
+  const [stateDropdownOpen, setStateDropdownOpen] = useState(false)
 
   // tRPC mutations for payment and secure order creation
   const initiateMutation = trpc.payment.initiate.useMutation()
@@ -86,11 +88,23 @@ export default function Checkout() {
   const handleNextStep = () => {
     const newErrors: Record<string, boolean> = {}
     if (!shippingInfo.fullName.trim()) newErrors.fullName = true
-    if (!shippingInfo.phone.trim()) newErrors.phone = true
+    
+    // Enforce Indian Phone standard (Starts with 6-9, 10 digits)
+    const phoneDigits = shippingInfo.phone.replace(/\D/g, '')
+    const phoneRegex = /^[6-9]\d{9}$/
+    if (!shippingInfo.phone.trim() || !phoneRegex.test(phoneDigits)) {
+      newErrors.phone = true
+    }
+
     if (!shippingInfo.address.trim()) newErrors.address = true
     if (!shippingInfo.city.trim()) newErrors.city = true
     if (!shippingInfo.state.trim()) newErrors.state = true
-    if (!shippingInfo.zipCode.trim()) newErrors.zipCode = true
+
+    // Enforce Indian Pincode standard (6 digits)
+    const pinRegex = /^\d{6}$/
+    if (!shippingInfo.zipCode.trim() || !pinRegex.test(shippingInfo.zipCode.trim())) {
+      newErrors.zipCode = true
+    }
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors)
@@ -108,8 +122,8 @@ export default function Checkout() {
   }
   const handlePrevStep = () => setStep(step - 1)
 
-  const getInputClass = (field: string) => `w-full h-12 md:h-14 px-4 md:px-6 rounded-2xl bg-[#F0E6D9]/40 border ${errors[field] ? 'border-red-500 focus:border-red-600' : 'border-[#E5C492]/20 focus:border-[#B37943]'} focus:bg-white outline-none transition-all font-sans`;
-  const getTextareaClass = (field: string) => `w-full p-4 md:p-6 rounded-2xl bg-[#F0E6D9]/40 border ${errors[field] ? 'border-red-500 focus:border-red-600' : 'border-[#E5C492]/20 focus:border-[#B37943]'} focus:bg-white outline-none transition-all font-sans resize-none`;
+  const getInputClass = (field: string) => `w-full h-10 md:h-14 px-3 md:px-6 rounded-2xl bg-[#F0E6D9]/40 border ${errors[field] ? 'border-red-500 focus:border-red-600' : 'border-[#E5C492]/20 focus:border-[#B37943]'} focus:bg-white outline-none transition-all font-sans`;
+  const getTextareaClass = (field: string) => `w-full p-3.5 md:p-6 rounded-2xl bg-[#F0E6D9]/40 border ${errors[field] ? 'border-red-500 focus:border-red-600' : 'border-[#E5C492]/20 focus:border-[#B37943]'} focus:bg-white outline-none transition-all font-sans resize-none`;
 
   const loadRazorpay = () => {
     return new Promise((resolve) => {
@@ -234,19 +248,11 @@ export default function Checkout() {
               setStep(3)
               clearCart()
             } else {
-              alert('We received your payment, but confirmation is delayed. Don\'t worry, your order is safe and you will receive an update shortly!')
-              setOrderId(createRes.orderId)
-              setOrderNumber(createRes.orderNumber || '')
-              setStep(3)
-              clearCart()
+              alert('Payment verification could not be completed. If money was deducted, your order will be confirmed automatically within a few minutes. Please do not retry the payment.')
             }
           } catch (err: any) {
             console.error('Verification error:', err)
-            alert('Network delay detected. We have received your payment and our system will confirm your order in the background. Please check your email shortly!')
-            setOrderId(createRes.orderId)
-            setOrderNumber(createRes.orderNumber || '')
-            setStep(3)
-            clearCart()
+            alert('We could not verify your payment due to a network issue. If money was deducted, your order will be confirmed automatically within a few minutes. Please do not retry the payment.')
           } finally {
             setLoading(false)
           }
@@ -285,26 +291,26 @@ export default function Checkout() {
   if (step === 3) {
     return (
       <PageWrapper>
-        <section className="py-20">
+        <section className="py-6 md:py-20">
           <div className="max-w-2xl mx-auto px-4 sm:px-6 text-center">
-            <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="w-24 h-24 bg-[#FAF3E8] border border-[#E5C492]/40 rounded-full flex items-center justify-center mx-auto mb-8 shadow-inner">
+            <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="w-24 h-24 bg-[#FAF3E8] border border-[#E5C492]/40 rounded-full flex items-center justify-center mx-auto mb-4 md:mb-8 shadow-inner">
               <CheckCircle2 className="w-12 h-12 text-[#B37943]" />
             </motion.div>
-            <h1 className="text-3xl md:text-4xl text-[#4A3525] font-serif mb-6">Ritual Initialized</h1>
-            <p className="text-[#8B7355] text-base md:text-lg mb-8 font-sans">
+            <h1 className="text-2xl md:text-4xl text-[#4A3525] font-serif mb-3 md:mb-6">Ritual Initialized</h1>
+            <p className="text-[#8B7355] text-sm md:text-lg mb-5 md:mb-8 font-sans">
               Thank you for choosing Roots & Leaves. Your sacred formulation is being prepared with care.
             </p>
             <motion.div 
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.2, duration: 0.8 }}
-              className="bg-gradient-to-br from-[#FAF9F6] via-[#FDFBF7] to-[#F0E6D9] border-2 border-[#E5C492] rounded-[32px] p-8 mb-10 inline-block w-full max-w-sm mx-auto shadow-[0_20px_40px_rgba(179,121,67,0.15)] relative overflow-hidden group"
+              className="bg-gradient-to-br from-[#FAF9F6] via-[#FDFBF7] to-[#F0E6D9] border-2 border-[#E5C492] rounded-[32px] p-5 md:p-8 mb-6 md:mb-10 inline-block w-full max-w-sm mx-auto shadow-[0_20px_40px_rgba(179,121,67,0.15)] relative overflow-hidden group"
             >
               <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-[#B37943] via-[#E5C492] to-[#B37943] opacity-70"></div>
               <div className="absolute -inset-1 bg-gradient-to-r from-[#E5C492]/0 via-[#E5C492]/20 to-[#E5C492]/0 opacity-0 group-hover:opacity-100 blur-xl transition-opacity duration-1000"></div>
               <p className="text-[10px] md:text-xs text-[#B37943] uppercase tracking-[0.4em] font-bold mb-3 relative z-10">Order ID</p>
               <div className="flex items-center justify-center relative z-10">
-                <span className="text-4xl md:text-5xl text-[#4A3525] font-serif tracking-widest drop-shadow-sm select-all">#{orderNumber}</span>
+                <span className="text-3xl md:text-5xl text-[#4A3525] font-serif tracking-widest drop-shadow-sm select-all">#{orderNumber}</span>
               </div>
             </motion.div>
             <div className="space-y-4">
@@ -340,10 +346,10 @@ export default function Checkout() {
 
   return (
     <PageWrapper>
-      <section className="py-12 md:py-20 w-full">
+      <section className="pt-1 pb-12 md:py-20 w-full">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           {/* Progress Header */}
-          <div className="flex items-center justify-center mb-12 md:mb-20">
+          <div className="flex items-center justify-center mb-4 md:mb-20">
             <div className="flex items-center gap-4">
               <div className={`flex items-center gap-2 ${step >= 1 ? 'text-[#B37943]' : 'text-[#8B7355] opacity-40'}`}>
                 <span className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold ${step >= 1 ? 'border-[#B37943] bg-[#B37943]/10' : 'border-[#8B7355]/30'}`}>1</span>
@@ -363,10 +369,10 @@ export default function Checkout() {
               <AnimatePresence mode="wait">
                 {step === 1 ? (
                   <motion.div key="shipping" {...fadeUp} onAnimationComplete={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="space-y-6 sm:space-y-8">
-                    <div className="bg-white/60 backdrop-blur-md p-4 sm:p-8 md:p-12 rounded-[20px] sm:rounded-[28px] md:rounded-[40px] border border-[#E5C492]/20 shadow-xl">
-                      <div className="flex items-center gap-2 sm:gap-3 mb-6 sm:mb-8">
+                    <div className="bg-white/60 backdrop-blur-md p-3.5 sm:p-8 md:p-12 rounded-[20px] sm:rounded-[28px] md:rounded-[40px] border border-[#E5C492]/20 shadow-xl">
+                      <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-8">
                         <MapPin className="w-5 h-5 sm:w-6 sm:h-6 text-[#B37943]" />
-                        <h2 className="text-xl sm:text-2xl text-[#4A3525] font-serif">Shipping Sanctuary</h2>
+                        <h2 className="text-lg sm:text-2xl text-[#4A3525] font-serif">Shipping Sanctuary</h2>
                       </div>
                       
                       <div className="grid md:grid-cols-2 gap-3 sm:gap-6">
@@ -394,12 +400,42 @@ export default function Checkout() {
                       <div className="mt-3 sm:mt-6 grid md:grid-cols-2 gap-3 sm:gap-6">
                         <div className="space-y-2">
                           <label className="text-[10px] uppercase tracking-widest font-bold text-[#4A3525] ml-1">State</label>
-                          <select id="state" value={shippingInfo.state} onChange={e => { setShippingInfo({...shippingInfo, state: e.target.value}); setErrors({...errors, state: false}) }} className={getInputClass('state')}>
-                            <option value="" disabled>Select your state</option>
-                            {INDIAN_STATES.map(st => (
-                              <option key={st} value={st}>{st}</option>
-                            ))}
-                          </select>
+                          <div className="relative">
+                            <button
+                              id="state-trigger"
+                              type="button"
+                              onClick={() => setStateDropdownOpen(!stateDropdownOpen)}
+                              className={`${getInputClass('state')} flex items-center justify-between pr-4 text-left font-sans text-xs sm:text-sm text-[#4A3525] bg-[#F0E6D9]/40 cursor-pointer border ${errors.state ? 'border-red-500' : 'border-[#E5C492]/20'} rounded-2xl w-full h-10 md:h-14`}
+                            >
+                              <span>{shippingInfo.state || 'Select your state'}</span>
+                              <ChevronDown className={`w-4 h-4 text-[#B37943] transition-transform duration-200 ${stateDropdownOpen ? 'rotate-180' : ''}`} />
+                            </button>
+
+                            {stateDropdownOpen && (
+                              <>
+                                <div 
+                                  className="fixed inset-0 z-40" 
+                                  onClick={() => setStateDropdownOpen(false)} 
+                                />
+                                <div className="absolute left-0 right-0 mt-1.5 max-h-40 overflow-y-auto bg-[#FAF9F6] border border-[#E5C492]/40 rounded-xl shadow-xl z-50 divide-y divide-[#E5C492]/10 no-scrollbar">
+                                  {INDIAN_STATES.map((st) => (
+                                    <button
+                                      key={st}
+                                      type="button"
+                                      onClick={() => {
+                                        setShippingInfo({ ...shippingInfo, state: st });
+                                        setErrors({ ...errors, state: false });
+                                        setStateDropdownOpen(false);
+                                      }}
+                                      className="w-full text-left px-4 py-2.5 text-xs sm:text-sm text-[#4A3525] hover:bg-[#F0E6D9]/40 active:bg-[#F0E6D9]/60 transition-colors font-sans"
+                                    >
+                                      {st}
+                                    </button>
+                                  ))}
+                                </div>
+                              </>
+                            )}
+                          </div>
                         </div>
                         <div className="space-y-2">
                           <label className="text-[10px] uppercase tracking-widest font-bold text-[#4A3525] ml-1">Pincode</label>
@@ -410,7 +446,7 @@ export default function Checkout() {
 
                     <button 
                       onClick={handleNextStep}
-                      className="w-full h-14 md:h-16 bg-[#B37943] text-white rounded-full font-bold uppercase tracking-[0.1em] md:tracking-[0.2em] text-[11px] sm:text-xs md:text-sm hover:bg-[#96612F] shadow-[0_4px_14px_rgba(179,121,67,0.4)] hover:shadow-[0_6px_20px_rgba(179,121,67,0.6)] transition-all duration-300 hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50 cursor-pointer"
+                      className="w-full h-11 md:h-16 bg-[#B37943] text-white rounded-full font-bold uppercase tracking-[0.1em] md:tracking-[0.2em] text-[11px] sm:text-xs md:text-sm hover:bg-[#96612F] shadow-[0_4px_14px_rgba(179,121,67,0.4)] hover:shadow-[0_6px_20px_rgba(179,121,67,0.6)] transition-all duration-300 hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50 cursor-pointer"
                     >
                       Continue to Review
                       <ArrowRight className="w-4 h-4" />
@@ -507,14 +543,14 @@ export default function Checkout() {
 
                     {/* Action Bar */}
                     <div className="flex gap-3 sm:gap-4 pt-2 sm:pt-4">
-                      <button onClick={handlePrevStep} className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-white border border-[#E5C492]/30 flex items-center justify-center text-[#4A3525] hover:bg-[#FAF8F5] shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-1 active:scale-95 shrink-0 cursor-pointer">
+                      <button onClick={handlePrevStep} className="w-11 h-11 sm:w-16 sm:h-16 rounded-full bg-white border border-[#E5C492]/30 flex items-center justify-center text-[#4A3525] hover:bg-[#FAF8F5] shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-1 active:scale-95 shrink-0 cursor-pointer">
                         <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6" />
                       </button>
                       
                       <button 
                         onClick={placeOrder}
                         disabled={loading || !browserConfirmed}
-                        className="flex-1 h-14 sm:h-16 bg-[#2A1F16] text-[#FAF8F5] rounded-full font-bold uppercase tracking-widest sm:tracking-[0.2em] text-[11px] sm:text-xs md:text-sm hover:bg-[#1A130E] shadow-[0_4px_20px_rgba(42,31,22,0.4)] hover:shadow-[0_8px_25px_rgba(42,31,22,0.6)] transition-all duration-300 hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-2 sm:gap-3 disabled:opacity-50 cursor-pointer"
+                        className="flex-1 h-11 sm:h-16 bg-[#2A1F16] text-[#FAF8F5] rounded-full font-bold uppercase tracking-widest sm:tracking-[0.2em] text-[11px] sm:text-xs md:text-sm hover:bg-[#1A130E] shadow-[0_4px_20px_rgba(42,31,22,0.4)] hover:shadow-[0_8px_25px_rgba(42,31,22,0.6)] transition-all duration-300 hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-2 sm:gap-3 disabled:opacity-50 cursor-pointer"
                       >
                         {loading ? 'Initializing Payment...' : `Complete Order • ₹${getTotal()}`}
                         <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5 text-[#E5C492]" />
@@ -534,11 +570,11 @@ export default function Checkout() {
                   {items.map((item) => (
                     <div key={item.variantId} className="flex gap-4 group">
                       <div className="w-20 h-24 bg-[#F0E6D9] rounded-2xl overflow-hidden shrink-0">
-                        <img src={getThumbnailImage(item.image)} alt={item.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                        <Image src={item.image} alt={item.name} width={80} height={96} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                       </div>
                       <div className="flex-1 min-w-0 flex flex-col justify-between py-1">
                         <div>
-                          <h4 className="text-[13px] sm:text-sm font-bold text-[#4A3525] truncate font-serif">{item.name}</h4>
+                          <h4 className="text-xs md:text-sm font-bold text-[#4A3525] truncate font-serif">{item.name}</h4>
                           <p className="text-[9px] sm:text-[10px] text-[#B37943] uppercase tracking-widest font-semibold mt-1 truncate">{item.variantLabel}</p>
                         </div>
                         <div className="flex items-center justify-between mt-2">

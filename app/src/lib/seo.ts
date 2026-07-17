@@ -12,7 +12,7 @@ import type { Metadata } from "next";
 
 export const BRAND = {
   name: "Roots & Leaves",
-  legalName: "Ayushyaa Foods & Naturals",
+  legalName: "Roots & Leaves",
   url: "https://www.rootsandleaves.in",
   logo: "https://www.rootsandleaves.in/roots-logo.png",
   email: "Rootsleaves2@gmail.com",

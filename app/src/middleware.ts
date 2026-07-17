@@ -8,7 +8,7 @@ const ipRequestCounts = new Map<string, { count: number; expiresAt: number }>();
 const RATE_LIMIT_MAX = 60; // Max requests per window
 const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute window
 
-export function proxy(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || '127.0.0.1';
   const now = Date.now();
 
@@ -44,6 +44,10 @@ export function proxy(request: NextRequest) {
     'Strict-Transport-Security',
     'max-age=31536000; includeSubDomains; preload'
   );
+  response.headers.set(
+    'Permissions-Policy',
+    'camera=(), microphone=(), geolocation=(), payment=(self "https://checkout.razorpay.com")'
+  );
   
   // Content Security Policy — whitelists only the exact external domains this app requires.
   // Each domain is documented for auditability.
@@ -63,8 +67,8 @@ export function proxy(request: NextRequest) {
     // Fonts: self + data URIs + Google Fonts static files + Perplexity font
     "font-src 'self' data: https://fonts.gstatic.com https://frontend-cdn.perplexity.ai",
 
-    // XHR/Fetch: self + Supabase API + Razorpay API + Delhivery API + Google Analytics
-    "connect-src 'self' https://*.supabase.co https://api.razorpay.com https://lumberjack.razorpay.com https://checkout.razorpay.com https://staging-express.delhivery.com https://track.delhivery.com https://www.google-analytics.com https://www.googletagmanager.com",
+    // XHR/Fetch: self + Supabase API + Razorpay API + Delhivery API + Google Analytics + Postal Pincode API
+    "connect-src 'self' https://*.supabase.co https://api.razorpay.com https://lumberjack.razorpay.com https://checkout.razorpay.com https://staging-express.delhivery.com https://track.delhivery.com https://www.google-analytics.com https://www.googletagmanager.com https://api.postalpincode.in",
 
     // Frames: Razorpay checkout modal + YouTube embedded videos
     "frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com https://www.youtube.com",

@@ -1,10 +1,13 @@
 "use client";
 import Link from 'next/link';
+import Image from 'next/image'
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+
+const MotionImage = motion(Image)
 import { ChevronDown, ChevronUp, Star, Plus, Minus, ShoppingCart } from 'lucide-react'
 import { type Product, type ProductVariant } from '@/lib/supabase'
-import { useCart, useUIStore } from '@/lib/store'
+import { useCart } from '@/lib/store'
 import PageWrapper from '@/components/PageWrapper'
 import { getThumbnailImage, getGalleryImage } from '@/lib/cloudinary'
 import { useRouter } from 'next/navigation'
@@ -28,7 +31,6 @@ export default function ProductDetail({ initialProduct }: { initialProduct?: any
     setAdded(true)
     setTimeout(() => {
       setAdded(false)
-      useUIStore.getState().setCartOpen(true)
     }, 600)
   }
 
@@ -84,14 +86,14 @@ export default function ProductDetail({ initialProduct }: { initialProduct?: any
               <div className="flex lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto no-scrollbar py-2 lg:py-0 lg:w-20 lg:h-[600px]">
                 {images.map((img: string, i: number) => (
                   <button key={i} onClick={() => setActiveImage(i)} className={`flex-shrink-0 w-16 h-16 lg:w-20 lg:h-20 rounded-xl overflow-hidden border-2 transition-colors cursor-pointer ${activeImage === i ? 'border-[#B37943]' : 'border-transparent opacity-60 hover:opacity-100'}`}>
-                    <img src={getThumbnailImage(img)} alt="Thumbnail" loading="lazy" className="w-full h-full object-cover" />
+                    <Image src={img} alt="Thumbnail" width={80} height={80} className="w-full h-full object-cover" />
                   </button>
                 ))}
               </div>
             )}
             <div className="relative flex-1 aspect-[4/5] lg:h-[600px] bg-[#F0E6D9] rounded-3xl overflow-hidden group">
               <AnimatePresence mode="wait">
-                <motion.img key={activeImage} src={getGalleryImage(images[activeImage])} alt={product.name} className="absolute inset-0 w-full h-full object-cover" fetchPriority="high" loading="eager" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} drag="x" dragConstraints={{ left: 0, right: 0 }} onDragEnd={handleDragEnd} />
+                <MotionImage key={activeImage} src={images[activeImage]} alt={product.name} width={1200} height={1500} priority={true} className="absolute inset-0 w-full h-full object-cover" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} drag="x" dragConstraints={{ left: 0, right: 0 }} onDragEnd={handleDragEnd} />
               </AnimatePresence>
               {images.length > 1 && (
                 <>
@@ -142,15 +144,16 @@ export default function ProductDetail({ initialProduct }: { initialProduct?: any
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3">
-              <button onClick={handleAddToCart} className={`flex-1 px-6 h-14 rounded-full text-sm font-bold uppercase tracking-widest flex items-center justify-center gap-3 transition-all duration-300 cursor-pointer ${added ? 'bg-[#4A3525] text-[#FAF9F6] shadow-xl' : 'bg-[#B37943] text-[#FAF9F6] hover:bg-[#96612F] shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.98]'}`}>
-                <ShoppingCart className="w-5 h-5" />
-                {added ? 'Added to Cart!' : `Add to Cart`}
+            <div className="fixed bottom-0 left-0 right-0 z-40 bg-[#FAF9F6]/95 backdrop-blur-md border-t border-[#E5C492]/25 p-4 pb-[calc(12px+env(safe-area-inset-bottom))] flex gap-3 lg:static lg:bg-transparent lg:border-t-0 lg:p-0">
+              <button onClick={handleAddToCart} className={`flex-1 px-6 h-12 lg:h-14 rounded-full text-xs lg:text-sm font-bold uppercase tracking-widest flex items-center justify-center gap-3 transition-all duration-300 cursor-pointer ${added ? 'bg-[#4A3525] text-[#FAF9F6] shadow-xl' : 'bg-[#B37943] text-[#FAF9F6] hover:bg-[#96612F] shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.98]'}`}>
+                <ShoppingCart className="w-4 h-4 lg:w-5 lg:h-5" />
+                {added ? 'Added!' : `Add to Cart`}
               </button>
-              <button onClick={handleBuyNow} className="flex-1 px-6 h-14 rounded-full text-sm font-bold uppercase tracking-widest flex items-center justify-center transition-all duration-300 cursor-pointer bg-[#2D362E] text-[#FAF9F6] hover:bg-[#1A211B] shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.98]">
+              <button onClick={handleBuyNow} className="flex-1 px-6 h-12 lg:h-14 rounded-full text-xs lg:text-sm font-bold uppercase tracking-widest flex items-center justify-center transition-all duration-300 cursor-pointer bg-[#2D362E] text-[#FAF9F6] hover:bg-[#1A211B] shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.98]">
                 Buy Now - ₹{((selectedVariant?.price || 0) * quantity)}
               </button>
             </div>
+            <div className="h-20 lg:hidden" />
 
             <div className="mt-12 space-y-3">
               {sections.map((section) => (

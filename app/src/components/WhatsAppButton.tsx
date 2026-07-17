@@ -2,13 +2,15 @@
 
 import React from 'react';
 import { usePathname } from 'next/navigation';
+import { useUIStore } from '@/lib/store';
 import './WhatsAppButton.css';
 
 const WhatsAppButton = () => {
   const pathname = usePathname();
 
-  // Hide WhatsApp floating button on all admin dashboard routes
-  if (pathname?.startsWith('/admin')) {
+  // Hide WhatsApp floating button on admin dashboard, checkout page, or when cart drawer is open
+  const isCartOpen = useUIStore((s) => s.isCartOpen);
+  if (pathname?.startsWith('/admin') || pathname === '/checkout' || isCartOpen) {
     return null;
   }
 

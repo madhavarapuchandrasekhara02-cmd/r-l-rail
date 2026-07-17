@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
+import { toast } from 'sonner'
 import { 
   Calculator, 
   Calendar, 
@@ -18,7 +19,6 @@ import {
 
 // Default constants for standard Indian tax compliance
 const DEFAULT_BUSINESS_STATE = 'Andhra Pradesh'
-const DEFAULT_GSTIN = '36AABCR1234F1Z5'
 
 const MONTHS = [
   { value: '01', label: 'January' },
@@ -55,7 +55,6 @@ export default function AdminFinance() {
     return String(now.getFullYear())
   })
   const [businessState, setBusinessState] = useState(DEFAULT_BUSINESS_STATE)
-  const [gstin, setGstin] = useState(DEFAULT_GSTIN)
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1)
@@ -172,6 +171,21 @@ export default function AdminFinance() {
     })
   }, [orders, businessState])
 
+  // Dynamic tax rate category compiler (Union of default rates + any actual custom rates from transaction history)
+  const dynamicRates = useMemo(() => {
+    const rates = new Set<number>()
+    processedOrders.forEach((o) => {
+      if (o.status !== 'Cancelled') {
+        o.items.forEach((item: any) => {
+          if (typeof item.gstRate === 'number') {
+            rates.add(item.gstRate)
+          }
+        })
+      }
+    })
+    return Array.from(rates).sort((a, b) => a - b)
+  }, [processedOrders])
+
   // Monthly Financial Summary Metrics
   const summary = useMemo(() => {
     let grossRevenue = 0
@@ -211,6 +225,10 @@ export default function AdminFinance() {
 
   // 1. DYNAMIC EXCELJS EXPORT (Client-Side, Multi-Sheet, Styled)
   const handleExportExcel = async () => {
+    if (processedOrders.length === 0) {
+      toast.error('No transactions available in the selected period to export.')
+      return
+    }
     try {
       const ExcelJS = (await import('exceljs')).default
       const workbook = new ExcelJS.Workbook()
@@ -255,7 +273,7 @@ export default function AdminFinance() {
       ]
 
       // Aggregate live calculations grouped by rate
-      const taxRates = [0, 5, 12, 18, 28]
+      const taxRates = dynamicRates
       taxRates.forEach(rate => {
         let baseSum = 0
         let cgstSum = 0
@@ -307,7 +325,6 @@ export default function AdminFinance() {
         { header: 'Customer', key: 'customer', width: 25 },
         { header: 'State', key: 'state', width: 18 },
         { header: 'Product Item', key: 'prod', width: 35 },
-        { header: 'HSN', key: 'hsn', width: 12 },
         { header: 'Qty', key: 'qty', width: 8 },
         { header: 'GST Rate', key: 'rate', width: 12 },
         { header: 'Taxable Amount', key: 'taxable', width: 18 },
@@ -325,7 +342,6 @@ export default function AdminFinance() {
             customer: o.customer_name,
             state: o.state,
             prod: item.product_name,
-            hsn: item.hsnCode,
             qty: item.quantity,
             rate: `${item.gstRate}%`,
             taxable: item.taxable,
@@ -341,11 +357,11 @@ export default function AdminFinance() {
       detailSheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '4A3525' } }
       detailSheet.eachRow((row, rowNumber) => {
         if (rowNumber > 1) {
+          row.getCell(8).numFmt = '₹#,##0.00'
           row.getCell(9).numFmt = '₹#,##0.00'
           row.getCell(10).numFmt = '₹#,##0.00'
           row.getCell(11).numFmt = '₹#,##0.00'
           row.getCell(12).numFmt = '₹#,##0.00'
-          row.getCell(13).numFmt = '₹#,##0.00'
         }
       })
 
@@ -397,6 +413,11 @@ export default function AdminFinance() {
 
   // 2. DYNAMIC PDF GENERATION (Client-Side, Luxury Theme, Printable)
   const handleExportPDF = async () => {
+    if (processedOrders.length === 0) {
+      toast.error('No transactions available in the selected period to export.')
+      return
+    }
+    const toastId = toast.loading('Generating finance PDF report...')
     try {
       const { jsPDF } = await import('jspdf')
       // Custom type casting for jsPDF autoTable integration
@@ -419,7 +440,6 @@ export default function AdminFinance() {
       doc.text('FINANCE & GST REPORT', 140, 18)
       doc.setFontSize(8)
       doc.text(`STATEMENT PERIOD: ${MONTHS.find(m => m.value === selectedMonth)?.label?.toUpperCase()} ${selectedYear}`, 140, 24)
-      doc.text(`GSTIN: ${gstin}`, 140, 29)
 
       // Section 1: Executive Sales & Tax Summary
       doc.setTextColor(74, 53, 37)
@@ -444,7 +464,7 @@ export default function AdminFinance() {
       doc.line(15, 98, 195, 98)
 
       // Gather live tax brackets
-      const brackets = [0, 5, 12, 18, 28]
+      const brackets = dynamicRates
       const rows = brackets.map(rate => {
         let taxableSum = 0
         let cgstSum = 0
@@ -528,14 +548,19 @@ export default function AdminFinance() {
 
       // Save PDF instantly
       doc.save(`Roots_Leaves_CA_Report_${selectedMonth}_${selectedYear}.pdf`)
+      toast.success('PDF downloaded!', { id: toastId })
     } catch (err) {
       console.error('PDF export failed:', err)
-      alert('Failed to generate PDF report.')
+      toast.error('Failed to generate PDF report.', { id: toastId })
     }
   }
 
   // 3. BONUS: DYNAMIC TALLYPRIME IMPORT CSV GENERATOR (0 database footprint)
   const handleExportTally = () => {
+    if (processedOrders.length === 0) {
+      toast.error('No transactions available in the selected period to export.')
+      return
+    }
     try {
       const headers = [
         'Voucher Date',
@@ -684,25 +709,6 @@ export default function AdminFinance() {
               <option value="Andhra Pradesh">Andhra Pradesh (Local)</option>
             </select>
           </div>
-
-          {/* GSTIN Config */}
-          <div>
-            <label className="block text-[10px] font-bold text-[#B37943] uppercase tracking-widest mb-1.5 font-sans">
-              Business GSTIN ID
-            </label>
-            <div className="relative">
-              <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-[#B37943]">
-                <Settings className="w-3.5 h-3.5" />
-              </span>
-              <input
-                type="text"
-                value={gstin}
-                onChange={(e) => setGstin(e.target.value)}
-                placeholder="GSTIN Code"
-                className="w-full h-10 pl-9 pr-3 bg-[#FAF9F6] border border-[#E5C492] rounded-xl text-xs font-sans font-bold tracking-wider text-[#4A3525] focus:outline-none focus:ring-1 focus:ring-[#B37943]"
-              />
-            </div>
-          </div>
         </div>
 
         {/* Action Panel */}
@@ -743,7 +749,7 @@ export default function AdminFinance() {
             <div>
               <h1 className="text-3xl font-serif text-[#4A3525] tracking-wider uppercase font-semibold">ROOTS &amp; LEAVES</h1>
               <p className="text-[10px] text-[#7B6856] uppercase tracking-widest font-sans">Ancient Ayurvedic Apothecary &amp; Organic Nutrition</p>
-              <p className="text-xs text-[#7B6856] mt-2">GSTIN ID: {gstin} | State Jurisdiction: {businessState}</p>
+              <p className="text-xs text-[#7B6856] mt-2">State Jurisdiction: {businessState}</p>
             </div>
             <div className="text-right">
               <h2 className="text-xl font-serif text-[#4A3525] font-semibold">FINANCE &amp; GST STATEMENT</h2>
@@ -826,38 +832,46 @@ export default function AdminFinance() {
                 </tr>
               </thead>
               <tbody className="text-xs text-[#4A3525] font-serif divide-y divide-[#FAF3E8]">
-                {[0, 5, 12, 18, 28].map((rate) => {
-                  let taxableSum = 0
-                  let cgstSum = 0
-                  let sgstSum = 0
-                  let igstSum = 0
-                  let totalGst = 0
+                {dynamicRates.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-12 text-center text-xs font-semibold text-[#B37943] uppercase tracking-widest font-sans">
+                      No active tax transactions for this period
+                    </td>
+                  </tr>
+                ) : (
+                  dynamicRates.map((rate) => {
+                    let taxableSum = 0
+                    let cgstSum = 0
+                    let sgstSum = 0
+                    let igstSum = 0
+                    let totalGst = 0
 
-                  processedOrders.forEach((o) => {
-                    if (o.status !== 'Cancelled') {
-                      o.items.forEach((item: any) => {
-                        if (item.gstRate === rate) {
-                          taxableSum += item.taxable
-                          cgstSum += item.cgst
-                          sgstSum += item.sgst
-                          igstSum += item.igst
-                          totalGst += item.gstAmount
-                        }
-                      })
-                    }
+                    processedOrders.forEach((o) => {
+                      if (o.status !== 'Cancelled') {
+                        o.items.forEach((item: any) => {
+                          if (item.gstRate === rate) {
+                            taxableSum += item.taxable
+                            cgstSum += item.cgst
+                            sgstSum += item.sgst
+                            igstSum += item.igst
+                            totalGst += item.gstAmount
+                          }
+                        })
+                      }
+                    })
+
+                    return (
+                      <tr key={rate} className="hover:bg-[#FAF9F6]/40 transition-colors">
+                        <td className="py-4 px-4 font-bold text-[#B37943]">{rate}% Standard Tax Bracket</td>
+                        <td className="py-4 px-4 text-right">₹{taxableSum.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                        <td className="py-4 px-4 text-right">₹{cgstSum.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                        <td className="py-4 px-4 text-right">₹{sgstSum.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                        <td className="py-4 px-4 text-right">₹{igstSum.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                        <td className="py-4 px-4 text-right font-bold">₹{totalGst.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                      </tr>
+                    )
                   })
-
-                  return (
-                    <tr key={rate} className="hover:bg-[#FAF9F6]/40 transition-colors">
-                      <td className="py-4 px-4 font-bold text-[#B37943]">{rate}% Standard Tax Bracket</td>
-                      <td className="py-4 px-4 text-right">₹{taxableSum.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                      <td className="py-4 px-4 text-right">₹{cgstSum.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                      <td className="py-4 px-4 text-right">₹{sgstSum.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                      <td className="py-4 px-4 text-right">₹{igstSum.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                      <td className="py-4 px-4 text-right font-bold">₹{totalGst.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                    </tr>
-                  )
-                })}
+                )}
               </tbody>
             </table>
           </div>

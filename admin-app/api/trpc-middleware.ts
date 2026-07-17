@@ -36,9 +36,14 @@ function extractToken(req: Request): string {
     return authHeader.substring(7);
   }
   const cookieHeader = req.headers.get("cookie") || "";
-  const cookies = Object.fromEntries(
-    cookieHeader.split(";").map((c) => c.trim().split("="))
-  );
+  const cookies: Record<string, string> = {};
+  for (const pair of cookieHeader.split(";")) {
+    const idx = pair.indexOf("=");
+    if (idx === -1) continue;
+    const key = pair.substring(0, idx).trim();
+    const value = pair.substring(idx + 1).trim();
+    cookies[key] = value;
+  }
   return cookies["sb-access-token"]
     ? decodeURIComponent(cookies["sb-access-token"])
     : "";

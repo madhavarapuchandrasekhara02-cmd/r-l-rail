@@ -294,6 +294,8 @@ export const dispatchRouter = createRouter({
       z.object({
         orderId: z.string().uuid(),
         waybill: z.string().trim().max(50).optional(),
+        courierPartner: z.string().trim().max(50).default('Manual'),
+        trackingUrl: z.string().trim().url().optional().or(z.literal('')),
       })
     )
     .mutation(async ({ input }) => {
@@ -315,15 +317,15 @@ export const dispatchRouter = createRouter({
 
         const waybill = input.waybill?.trim() || `MANUAL-${order.order_number}`
 
-        // 2. Insert manual courier shipment record
+        // 2. Insert manual courier shipment record (using correct courier_partner column)
         const { error: shipErr } = await supabaseAdmin
           .from('shipments')
           .insert({
             order_id: input.orderId,
             waybill,
             tracking_status: 'Shipped',
-            tracking_url: null,
-            carrier_name: 'Manual',
+            tracking_url: input.trackingUrl || null,
+            courier_partner: input.courierPartner || 'Manual',
             shipped_at: new Date().toISOString()
           })
 
@@ -370,7 +372,7 @@ export const dispatchRouter = createRouter({
       const { data: expiredShipments } = await supabaseAdmin
         .from('shipments')
         .select('order_id')
-        .or('waybill.ilike.MANUAL-%,carrier_name.eq.Manual')
+        .or('waybill.ilike.MANUAL-%,courier_partner.eq.Manual')
         .lt('shipped_at', cutoffDate.toISOString())
 
       if (expiredShipments && expiredShipments.length > 0) {
@@ -385,7 +387,16 @@ export const dispatchRouter = createRouter({
       console.error('[Dispatch] Auto-delivery simulation failed:', simulationErr)
     }
 
-    const { data } = await supabaseAdmin.from('shipments').select('*').order('created_at', { ascending: false }).limit(1000)
+    const { data, error } = await supabaseAdmin
+      .from('shipments')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(1000)
+
+    if (error) {
+      console.error('[Dispatch] getRecentShipments error:', error)
+      return []
+    }
     return data || []
   }),
 

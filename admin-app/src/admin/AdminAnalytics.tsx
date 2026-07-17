@@ -63,11 +63,9 @@ export default function AdminAnalytics() {
       const monthSales = monthOrders.reduce((sum, o) => sum + (o.total || 0), 0)
       setMonthStats({ orders: monthOrders.length, customers: monthCustomers, sales: monthSales })
 
-      // 4. Top Products (Simplified for now)
+      // 4. Top Products (Aggregated via database function)
       const { data: topProds } = await supabase
-        .from('order_items')
-        .select('product_name, quantity, price')
-        .limit(5)
+        .rpc('get_top_products', { limit_count: 5 })
       
       setTopProducts(topProds || [])
 

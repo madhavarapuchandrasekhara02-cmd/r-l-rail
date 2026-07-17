@@ -130,14 +130,19 @@ export const shippingRouter = createRouter({
           }
         }
 
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 second timeout
+
         const res = await fetch(
           `${DELHIVERY_BASE}/api/v1/packages/json/?waybill=${input.waybill}`,
           {
             headers: {
               'Authorization': `Token ${DELHIVERY_API_TOKEN}`
-            }
+            },
+            signal: controller.signal
           }
         )
+        clearTimeout(timeoutId)
         
         const responseText = await res.text()
         let data

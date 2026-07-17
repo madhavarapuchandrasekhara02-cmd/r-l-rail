@@ -1,4 +1,5 @@
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { useState, useEffect, useCallback } from 'react'
 
 import { X, Plus, Minus, ShoppingBag, Truck } from 'lucide-react'
@@ -81,13 +82,13 @@ export default function CartDrawer() {
                 <div key={item.variantId} className="flex gap-3 pb-4 border-b border-[#E5C492]/15">
                   <div className="w-16 h-16 bg-[#F0E6D9] rounded-xl overflow-hidden flex-shrink-0">
                     {item.image ? (
-                      <img src={getThumbnailImage(item.image)} alt={item.name} className="w-full h-full object-cover" />
+                      <Image src={item.image} alt={item.name} width={64} height={64} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full bg-[#F0E6D9]" />
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-medium text-[#4A3525] truncate">{item.name}</h3>
+                    <h3 className="text-xs md:text-sm font-semibold text-[#4A3525] truncate">{item.name}</h3>
                     <p className="text-xs text-[#8B7355] mt-0.5">{item.variantLabel}</p>
                     <div className="flex items-center justify-between mt-2">
                       <div className="flex items-center gap-1 bg-[#F0E6D9] rounded-lg">
@@ -119,12 +120,7 @@ export default function CartDrawer() {
                 </div>
               ))}
 
-              {/* Coupon */}
-              <div className="pt-2">
-                <button className="flex items-center gap-2 text-sm text-[#B37943] hover:underline cursor-pointer">
-                  <span className="text-base">%</span> Apply Coupon
-                </button>
-              </div>
+
             </div>
           )}
         </div>
@@ -151,13 +147,13 @@ export default function CartDrawer() {
             </div>
             <button
               onClick={() => { setOpen(false); router.push('/checkout') }}
-              className="w-full py-3.5 bg-[#B37943] text-[#FAF9F6] font-semibold rounded-2xl hover:bg-[#96612F] transition-all duration-300 shadow-[0_4px_14px_rgba(179,121,67,0.25)] hover:shadow-[0_6px_20px_rgba(179,121,67,0.35)] cursor-pointer"
+              className="w-full py-2.5 md:py-3.5 bg-[#B37943] text-[#FAF9F6] text-xs md:text-sm font-semibold rounded-2xl hover:bg-[#96612F] transition-all duration-300 shadow-[0_4px_14px_rgba(179,121,67,0.25)] hover:shadow-[0_6px_20px_rgba(179,121,67,0.35)] cursor-pointer"
             >
               Proceed to Checkout
             </button>
             <button
               onClick={() => setOpen(false)}
-              className="w-full py-2.5 border border-[#E5C492]/30 text-[#8B7355] font-medium rounded-2xl hover:bg-[#F0E6D9] transition-colors duration-250 cursor-pointer"
+              className="w-full py-2 md:py-2.5 border border-[#E5C492]/30 text-[#8B7355] text-xs md:text-sm font-medium rounded-2xl hover:bg-[#F0E6D9] transition-colors duration-250 cursor-pointer"
             >
               Continue Shopping
             </button>

@@ -24,14 +24,14 @@ export default function TermsOfService() {
             <div className="space-y-4">
               <h2 className="text-2xl text-[#3B2F21] font-serif">1. Acceptance of Terms</h2>
               <p>
-                By accessing and using Ayushyaa Foods & Naturals website, you accept and agree to be bound by the terms and provision of this agreement.
+                By accessing and using Roots & Leaves website, you accept and agree to be bound by the terms and provision of this agreement.
               </p>
             </div>
 
             <div className="space-y-4">
               <h2 className="text-2xl text-[#3B2F21] font-serif">2. Use License</h2>
               <p>
-                Permission is granted to temporarily download one copy of the materials on Ayushyaa's website for personal, non-commercial transitory viewing only.
+                Permission is granted to temporarily download one copy of the materials on Roots & Leaves' website for personal, non-commercial transitory viewing only.
               </p>
             </div>
 

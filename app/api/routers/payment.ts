@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { createRouter, publicQuery } from '../trpc-middleware'
+import { createRouter, publicQuery, publicMutation } from '../trpc-middleware'
 import { supabaseAdmin } from '../lib/supabase-admin'
 import crypto from 'crypto'
 
@@ -39,7 +39,7 @@ function verifyRazorpaySignature(orderId: string, paymentId: string, signature: 
 }
 
 export const paymentRouter = createRouter({
-  initiate: publicQuery
+  initiate: publicMutation
     .input(
       z.object({
         orderId: z.string(),
@@ -62,6 +62,11 @@ export const paymentRouter = createRouter({
         if (orderErr || !dbOrder) {
           console.error('[Razorpay initiate] Error fetching order:', orderErr)
           throw new Error('Order not found in database')
+        }
+
+        if (dbOrder.status !== 'Pending') {
+          console.warn(`[Razorpay initiate] Blocked: Order status is '${dbOrder.status}', expected 'Pending'. Order ID: ${input.orderId}`)
+          throw new Error('Payment can only be initiated for orders in Pending status')
         }
 
         // 2. Recalculate the sum of items + delivery charge securely on backend
@@ -119,7 +124,7 @@ export const paymentRouter = createRouter({
       }
     }),
 
-  verifyPayment: publicQuery
+  verifyPayment: publicMutation
     .input(
       z.object({
         orderId: z.string(),

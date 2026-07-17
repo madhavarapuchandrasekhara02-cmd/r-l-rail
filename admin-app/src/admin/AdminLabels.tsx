@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { trpc } from '@/providers/trpc'
 import { supabase } from '@/lib/supabase'
+import { downloadBulkLabels } from '@/lib/pdf'
 import { toast } from 'sonner'
 import {
   FileText,
@@ -41,22 +42,7 @@ export default function AdminLabels() {
 
   // Helper to securely trigger PDF downloads bypassing popup blockers & cookie limits on mobile
   const triggerLabelDownload = async (waybills: string[]) => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const token = session?.access_token || ''
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-      const downloadParam = isMobile ? '&download=true' : ''
-      const url = `/api/dispatch/labels?waybills=${waybills.join(',')}&token=${encodeURIComponent(token)}${downloadParam}`
-      
-      if (isMobile) {
-        window.location.href = url
-      } else {
-        window.open(url, '_blank')
-      }
-    } catch (err) {
-      console.error('Error triggering download:', err)
-      toast.error('Failed to prepare label download')
-    }
+    await downloadBulkLabels(waybills)
   }
 
   const handleDownloadBatch = () => {

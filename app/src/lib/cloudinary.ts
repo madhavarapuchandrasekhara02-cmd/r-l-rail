@@ -35,7 +35,9 @@ export function getOptimizedImage(url: string, options: CloudinaryOptions = {}):
     const base = url.substring(0, uploadIndex + 8); // e.g. "https://res.cloudinary.com/cloudname/image/upload/"
     const rest = url.substring(uploadIndex + 8);    // e.g. "v12345678/folder/image.jpg"
 
-    const transformations: string[] = ['f_auto', 'q_auto'];
+    const qualityParam = options.quality ? `q_${options.quality}` : 'q_auto';
+    const formatParam = options.format ? `f_${options.format}` : 'f_auto';
+    const transformations: string[] = [formatParam, qualityParam];
 
     if (options.width) {
       transformations.push(`w_${options.width}`);
@@ -45,12 +47,6 @@ export function getOptimizedImage(url: string, options: CloudinaryOptions = {}):
     }
     if (options.crop) {
       transformations.push(`c_${options.crop}`);
-    }
-    if (options.quality) {
-      transformations.push(`q_${options.quality}`);
-    }
-    if (options.format) {
-      transformations.push(`f_${options.format}`);
     }
 
     const transformSegment = transformations.join(',');
@@ -65,24 +61,24 @@ export function getOptimizedImage(url: string, options: CloudinaryOptions = {}):
 }
 
 /**
- * Transforms product images to optimal card display size (e.g. 600px width for high-density Retina mobile/tablet screens).
+ * Transforms product images to optimal card display size (e.g. 600px width at standard auto quality).
  */
 export function getProductImage(url: string): string {
-  return getOptimizedImage(url, { width: 600 });
+  return getOptimizedImage(url, { width: 600, quality: 'auto' });
 }
 
 /**
- * Transforms images for fast cart/checkout mini thumbnails (e.g. 200px width).
+ * Transforms images for fast cart/checkout mini thumbnails (e.g. 250px width).
  */
 export function getThumbnailImage(url: string): string {
-  return getOptimizedImage(url, { width: 200, height: 200, crop: 'fill' });
+  return getOptimizedImage(url, { width: 250, height: 250, crop: 'fill', quality: 'auto' });
 }
 
 /**
  * Transforms images for high-definition storefront product galleries (e.g. 1200px width).
  */
 export function getGalleryImage(url: string): string {
-  return getOptimizedImage(url, { width: 1200 });
+  return getOptimizedImage(url, { width: 1200, quality: 'auto' });
 }
 
 /**

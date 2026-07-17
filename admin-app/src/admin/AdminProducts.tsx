@@ -45,11 +45,22 @@ export default function AdminProducts() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState<ProductForm>(emptyForm)
+  const [showCustomGst, setShowCustomGst] = useState(false)
   const [saving, setSaving] = useState(false)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const fileRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const signUploadMutation = trpc.cloudinary.signUpload.useMutation()
+
+  // tRPC Mutations and Queries for Inventory (Harden RLS writes)
+  const listProductsQuery = trpc.product.list.useQuery(undefined, {
+    enabled: false,
+    retry: false,
+  })
+  const upsertProductMutation = trpc.product.upsert.useMutation()
+  const upsertVariantMutation = trpc.product.upsertVariant.useMutation()
+  const deleteProductMutation = trpc.product.delete.useMutation()
+  const getNextSkuMutation = trpc.product.getNextSku.useMutation()
 
   useEffect(() => {
     fetchProducts()
@@ -61,16 +72,13 @@ export default function AdminProducts() {
   async function fetchProducts() {
     setLoading(true)
     try {
-      const { data, error } = await supabase
-        .from('products')
-        .select(`*, product_variants(*)`)
-        .order('display_order', { ascending: true })
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-      setProducts(data || [])
+      const data = await listProductsQuery.refetch()
+      if (data.data) {
+        setProducts(data.data)
+      }
     } catch (err) {
       console.error(err)
+      toast.error('Failed to load products list from catalog.')
     } finally {
       setLoading(false)
     }
@@ -251,34 +259,23 @@ export default function AdminProducts() {
     setSaving(true)
 
     try {
-      const productData: any = {
+      const productRes = await upsertProductMutation.mutateAsync({
+        id: form.id || undefined,
         name: form.name,
         slug: form.slug || generateSlug(form.name),
         description: form.description || null,
         ingredients: form.ingredients || null,
         how_to_use: form.how_to_use || null,
-        category: form.category,
-        images: form.images.length > 0 ? form.images : null,
         rating: form.rating,
-        gst_rate: form.gst_rate,
+        category: form.category as any,
+        images: form.images || [],
+        gst_rate: form.gst_rate as any,
         hsn_code: form.hsn_code,
         display_order: form.display_order,
-      }
+      })
 
-      if (form.id) {
-        productData.id = form.id
-      }
-
-      const { data, error } = await supabase.from('products').upsert(productData).select('id').single()
-
-      if (error) {
-        console.error('Product save error:', error)
-        throw new Error(error.message || 'Failed to save product details')
-      }
-
-      const productId = data.id
-      // Sync form ID after successful save
-      setForm(prev => ({ ...prev, id: data.id }))
+      const productId = productRes.id
+      setForm(prev => ({ ...prev, id: productId }))
 
       if (productId) {
         for (const variant of validVariants) {
@@ -288,17 +285,14 @@ export default function AdminProducts() {
             if (!currentSku || currentSku.trim() === '') {
               const prefix = CATEGORY_CONFIG[form.category as RitualCategorySlug]?.skuPrefix || 'NAT';
               try {
-                const { data: generatedSku, error: skuError } = await supabase.rpc('get_next_sku', { prefix });
-
-                if (!skuError && generatedSku) {
+                const generatedSku = await getNextSkuMutation.mutateAsync({ prefix });
+                if (generatedSku) {
                   currentSku = generatedSku;
                 } else {
-                  console.warn('SKU RPC failed, using fallback:', skuError);
+                  console.warn('SKU RPC failed, using fallback');
                   throw new Error('RPC failed');
                 }
               } catch (e) {
-                // Fallback if RPC fails or sequence doesn't exist yet
-                // Using a timestamp + random to practically guarantee uniqueness
                 const timestampPart = Date.now().toString().slice(-4);
                 const randomPart = Math.floor(100 + Math.random() * 899);
                 const namePart = generateSlug(form.name).substring(0, 3).toUpperCase();
@@ -307,30 +301,17 @@ export default function AdminProducts() {
               }
             }
 
-            if (variant.id) {
-              const { error: updateErr } = await supabase.from('product_variants').update({
-                size_label: variant.size_label,
-                price: variant.price,
-                sku: currentSku,
-                stock: variant.stock,
-              }).eq('id', variant.id)
-              if (updateErr) throw updateErr;
-            } else {
-              const { error: insertErr } = await supabase.from('product_variants').insert({
-                product_id: productId,
-                size_label: variant.size_label,
-                price: variant.price,
-                sku: currentSku,
-                stock: variant.stock,
-              })
-              if (insertErr) throw insertErr;
-            }
+            await upsertVariantMutation.mutateAsync({
+              id: variant.id || undefined,
+              productId,
+              sizeLabel: variant.size_label,
+              price: Math.round(variant.price),
+              sku: currentSku,
+              stock: Math.round(variant.stock),
+            })
           } catch (variantErr: any) {
             console.error('Detailed Variant Error:', variantErr);
-            const errorMsg = variantErr.code === '23505'
-              ? `SKU conflict: "${currentSku}" is already in use.`
-              : (variantErr.message || variantErr.details || `Failed to save variant ${variant.size_label}`);
-            throw new Error(errorMsg);
+            throw new Error(variantErr.message || `Failed to save variant ${variant.size_label}`);
           }
         }
       }
@@ -350,22 +331,7 @@ export default function AdminProducts() {
   async function handleDelete(id: string) {
     if (!confirm('Are you sure you want to delete this product? This action cannot be undone.')) return
     try {
-      // 1. Delete variants first to satisfy foreign key constraints
-      const { error: variantError } = await supabase
-        .from('product_variants')
-        .delete()
-        .eq('product_id', id)
-
-      if (variantError) throw variantError
-
-      // 2. Delete the product
-      const { error: productError } = await supabase
-        .from('products')
-        .delete()
-        .eq('id', id)
-
-      if (productError) throw productError
-
+      await deleteProductMutation.mutateAsync({ id })
       toast.success('Product and its variants deleted successfully')
       fetchProducts()
     } catch (err: any) {
@@ -375,6 +341,7 @@ export default function AdminProducts() {
   }
 
   function editProduct(product: any) {
+    setShowCustomGst(![0, 5, 12, 18, 28].includes(product.gst_rate ?? 18))
     setForm({
       id: product.id,
       name: product.name,
@@ -427,7 +394,7 @@ export default function AdminProducts() {
             </button>
           </div>
           <button
-            onClick={() => { setForm(emptyForm); setShowForm(true) }}
+            onClick={() => { setForm(emptyForm); setShowCustomGst(false); setShowForm(true) }}
             className="flex items-center gap-2 px-5 py-3 bg-[#B37943] text-white text-xs font-bold rounded-xl hover:bg-[#8A5D33] transition-all shadow-lg shadow-[#B37943]/10 uppercase tracking-widest"
           >
             <Plus className="w-3.5 h-3.5" /> New Product
@@ -462,7 +429,7 @@ export default function AdminProducts() {
           <p className="text-xl font-serif text-[#4A3525] mb-1">The shelves are empty</p>
           <p className="text-xs text-[#B37943] mb-6">Start your journey by adding your first botanical creation.</p>
           <button
-            onClick={() => { setForm(emptyForm); setShowForm(true) }}
+            onClick={() => { setForm(emptyForm); setShowCustomGst(false); setShowForm(true) }}
             className="px-6 py-3 bg-[#FAF9F6] text-[#4A3525] font-bold rounded-xl border border-[#E5C492] hover:bg-white transition-all uppercase tracking-widest text-[10px]"
           >
             Initialize Catalog
@@ -720,28 +687,51 @@ export default function AdminProducts() {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-2">
+                      <div className="space-y-2 col-span-2">
                         <label className="text-xs font-bold text-[#4A3525] uppercase tracking-widest px-1">GST Rate (%)</label>
-                        <select
-                          value={form.gst_rate}
-                          onChange={(e) => setForm({ ...form, gst_rate: parseInt(e.target.value) || 0 })}
-                          className="w-full px-5 py-4 bg-[#FAF9F6]/50 border border-[#E5C492] rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-[#B37943]/5 transition-all text-[#4A3525] font-medium"
-                        >
-                          <option value={0}>0% (Tax Exempt)</option>
-                          <option value={5}>5% (Ayurvedic Medicines)</option>
-                          <option value={12}>12% (Foods/Supplements)</option>
-                          <option value={18}>18% (Cosmetics/Luxury)</option>
-                          <option value={28}>28% (Luxury items)</option>
-                        </select>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-xs font-bold text-[#4A3525] uppercase tracking-widest px-1">HSN Code</label>
-                        <input
-                          value={form.hsn_code}
-                          onChange={(e) => setForm({ ...form, hsn_code: e.target.value })}
-                          className="w-full px-5 py-4 bg-[#FAF9F6]/50 border border-[#E5C492] rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-[#B37943]/5 transition-all"
-                          placeholder="e.g. 33051090"
-                        />
+                        <div className="space-y-3">
+                          <select
+                            value={showCustomGst ? 'custom' : form.gst_rate}
+                            onChange={(e) => {
+                              const val = e.target.value
+                              if (val === 'custom') {
+                                setShowCustomGst(true)
+                              } else {
+                                setShowCustomGst(false)
+                                setForm({ ...form, gst_rate: parseInt(val) || 0 })
+                              }
+                            }}
+                            className="w-full px-5 py-4 bg-[#FAF9F6]/50 border border-[#E5C492] rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-[#B37943]/5 transition-all text-[#4A3525] font-medium"
+                          >
+                            <option value={0}>0% (Tax Exempt)</option>
+                            <option value={5}>5% (Ayurvedic Medicines)</option>
+                            <option value={12}>12% (Foods/Supplements)</option>
+                            <option value={18}>18% (Cosmetics/Luxury)</option>
+                            <option value={28}>28% (Luxury items)</option>
+                            <option value="custom">Custom...</option>
+                          </select>
+                          
+                          {showCustomGst && (
+                            <div className="flex items-center gap-2 animate-in slide-in-from-top-1 duration-200">
+                              <input
+                                type="number"
+                                min={0}
+                                max={100}
+                                value={form.gst_rate === 0 ? '' : form.gst_rate}
+                                onChange={(e) => {
+                                  const val = e.target.value
+                                  setForm({ 
+                                    ...form, 
+                                    gst_rate: val === '' ? 0 : Math.min(100, Math.max(0, parseInt(val) || 0)) 
+                                  })
+                                }}
+                                className="w-28 px-4 py-2 bg-white border border-[#E5C492] rounded-xl text-sm text-[#4A3525] font-bold focus:outline-none focus:ring-2 focus:ring-[#B37943]"
+                                placeholder="0"
+                              />
+                              <span className="text-xs font-semibold text-[#7B6856]">% Custom Tax Rate</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
 

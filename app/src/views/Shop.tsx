@@ -27,20 +27,27 @@ export default function Shop() {
   useEffect(() => {
     async function fetchCounts() {
       try {
-        const [allRes, hairRes, wellnessRes, faceRes, babyRes] = await Promise.all([
-          supabase.from('products').select('*', { count: 'exact', head: true }),
-          supabase.from('products').select('*', { count: 'exact', head: true }).eq('category', 'hair-rituals'),
-          supabase.from('products').select('*', { count: 'exact', head: true }).eq('category', 'wellness-rituals'),
-          supabase.from('products').select('*', { count: 'exact', head: true }).eq('category', 'face-rituals'),
-          supabase.from('products').select('*', { count: 'exact', head: true }).eq('category', 'baby-rituals'),
-        ])
+        const { data, error } = await supabase.rpc('get_category_counts')
+        if (error) throw error
+
+        const countsMap: Record<string, number> = { all: 0, hair: 0, wellness: 0, face: 0, baby: 0 }
+        let total = 0
+        
+        data?.forEach((row: { category: string; count: number }) => {
+          total += Number(row.count)
+          if (row.category === 'hair-rituals') countsMap.hair = Number(row.count)
+          else if (row.category === 'wellness-rituals') countsMap.wellness = Number(row.count)
+          else if (row.category === 'face-rituals') countsMap.face = Number(row.count)
+          else if (row.category === 'baby-rituals') countsMap.baby = Number(row.count)
+        })
+        countsMap.all = total
 
         setCounts({
-          all: allRes.count || 0,
-          hair: hairRes.count || 0,
-          wellness: wellnessRes.count || 0,
-          face: faceRes.count || 0,
-          baby: babyRes.count || 0,
+          all: countsMap.all,
+          hair: countsMap.hair,
+          wellness: countsMap.wellness,
+          face: countsMap.face,
+          baby: countsMap.baby,
         })
       } catch (err) {
         console.error('Error fetching category counts:', err)
@@ -89,7 +96,7 @@ export default function Shop() {
 
   return (
     <PageWrapper>
-      <section className="pt-8 pb-4">
+      <section className="pt-1 pb-4 md:pt-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <motion.div
             initial={{ opacity: 0, y: 20 }}

@@ -1,5 +1,6 @@
 import AdminLayout from "@/admin/AdminLayout";
 import { TRPCProvider } from "@/providers/trpc";
+import { Toaster } from 'sonner';
 import "../index.css";
 
 export const metadata = {
@@ -22,6 +23,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <TRPCProvider>
           <AdminLayout>{children}</AdminLayout>
         </TRPCProvider>
+        <Toaster richColors position="top-right" />
       </body>
     </html>
   );

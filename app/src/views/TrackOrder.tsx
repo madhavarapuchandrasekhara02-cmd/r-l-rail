@@ -13,7 +13,7 @@ const fadeUp = {
 }
 
 export default function TrackOrder() {
-  const [orderId, setOrderId] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
   const [order, setOrder] = useState<any>(null)
   const [ordersList, setOrdersList] = useState<any[] | null>(null)
   const [error, setError] = useState('')
@@ -29,14 +29,15 @@ export default function TrackOrder() {
   // Construct queries for trpc live shipment tracking, enabled if waybill exists
   const waybill = order?.shipments?.[0]?.waybill || ''
   const isDelivered = order?.status === 'Delivered'
-  const isManual = waybill.startsWith('MANUAL-') || order?.shipments?.[0]?.carrier_name === 'Manual'
+  const isUnserviceable = waybill === 'UNSERVICEABLE' || order?.shipments?.[0]?.courier_partner?.toUpperCase() === 'UNSERVICEABLE'
+  const isManual = (waybill.startsWith('MANUAL-') || order?.shipments?.[0]?.courier_partner === 'Manual') && !isUnserviceable
 
   const { data: trackingData, isLoading: trackingLoading } = trpc.shipping.trackShipment.useQuery(
     { waybill },
-    { enabled: !!waybill && !isManual }
+    { enabled: !!waybill && !isManual && !isUnserviceable }
   )
 
-  // Calculate active steps for 8-node elegant timeline
+  // Calculate active steps for timeline
   const shipment = order?.shipments?.[0]
   
   // Normalize live status
@@ -83,13 +84,13 @@ export default function TrackOrder() {
     if (!submittedQuery) return
     if (trackData) {
       if (!trackData.success) {
-        setError(trackData.error || 'No orders found. Please check your Order ID or Phone Number and try again.')
+        setError(trackData.error || 'No orders found. Please check your inputs and try again.')
         setOrder(null)
         setOrdersList(null)
       } else {
         const data = trackData.orders || []
         if (data.length === 0) {
-          setError('No orders found. Please check your Order ID or Phone Number and try again.')
+          setError('No orders found. Please check your inputs and try again.')
           setOrder(null)
           setOrdersList(null)
         } else if (data.length > 1) {
@@ -107,15 +108,18 @@ export default function TrackOrder() {
 
   const handleTrack = async (e: React.FormEvent) => {
     e.preventDefault()
-    const query = orderId.trim()
-    if (!query) return
+    const cleanQ = searchQuery.trim()
+    if (!cleanQ) {
+      setError('Order Number or Phone Number is required.')
+      return
+    }
     setError('')
     setOrder(null)
     setOrdersList(null)
-    if (submittedQuery === query) {
+    if (submittedQuery === cleanQ) {
       refetch()
     } else {
-      setSubmittedQuery(query)
+      setSubmittedQuery(cleanQ)
     }
   }
 
@@ -142,24 +146,27 @@ export default function TrackOrder() {
           </motion.div>
 
           {/* Search Form */}
-          <motion.div {...fadeUp} transition={{ delay: 0.1 }} className="max-w-2xl mx-auto">
-            <form onSubmit={handleTrack} className="relative group">
-              <input 
-                type="text" 
-                value={orderId}
-                onChange={(e) => setOrderId(e.target.value)}
-                placeholder="Order Number or Phone Number"
-                className="w-full h-16 md:h-20 pl-8 pr-32 rounded-3xl bg-white/60 backdrop-blur-md border border-[#E5C492]/30 shadow-xl focus:border-[#B37943] focus:bg-white outline-none transition-all font-sans text-lg text-[#4A3525]"
-              />
+          <motion.div {...fadeUp} transition={{ delay: 0.1 }} className="max-w-xl mx-auto">
+            <form onSubmit={handleTrack} className="bg-white/80 backdrop-blur-md rounded-3xl border border-[#E5C492]/30 shadow-xl p-8 space-y-5">
+              <div>
+                <label className="block text-xs font-bold text-[#4A3525] uppercase tracking-wider mb-2 font-sans">Order Number or Phone Number</label>
+                <input 
+                  type="text" 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="e.g. RAL-1001 or 9876543210"
+                  className="w-full h-12 px-6 rounded-2xl bg-[#FBF8F3] border border-[#E5C492]/20 focus:border-[#B37943] focus:bg-white outline-none transition-all font-sans text-sm text-[#4A3525]"
+                />
+              </div>
 
               <button 
                 type="submit"
                 disabled={loading}
-                className="absolute right-3 top-3 bottom-3 px-8 bg-[#B37943] text-white rounded-2xl font-bold uppercase tracking-widest text-xs hover:bg-[#96612F] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full h-12 bg-[#B37943] hover:bg-[#96612F] text-white rounded-2xl font-bold uppercase tracking-widest text-xs transition-all flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {loading ? 'Searching...' : (
                   <>
-                    Track <Search className="w-4 h-4" />
+                    Track Ritual <Search className="w-4 h-4" />
                   </>
                 )}
               </button>
@@ -354,8 +361,29 @@ export default function TrackOrder() {
                   </motion.div>
                 )}
 
+                {/* Unserviceable Alternative Courier Message */}
+                {isUnserviceable && (
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.95 }} 
+                    animate={{ opacity: 1, scale: 1 }} 
+                    className="bg-[#FAF9F6] rounded-[32px] border border-[#E5C492]/40 shadow-xl p-8 md:p-10 space-y-4"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-[#B37943]/10 flex items-center justify-center text-[#B37943] shrink-0">
+                        <Truck className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg text-[#4A3525] font-serif font-bold">Alternative Courier Dispatch</h3>
+                        <p className="text-xs text-[#8B7355] leading-relaxed mt-2 font-medium">
+                          Our Delhivery courier partner does not deliver products to your current address, so we are delivering your product using other delivery partners like DTDC or Shiprocket etc. So your product will be received within 4 to 6 days of the dispatch.
+                        </p>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
                 {/* Delhivery One Live Tracking Scans */}
-                {waybill && !isManual && (
+                {waybill && !isManual && !isUnserviceable && (
                   <motion.div 
                     initial={{ opacity: 0, scale: 0.95 }} 
                     animate={{ opacity: 1, scale: 1 }} 

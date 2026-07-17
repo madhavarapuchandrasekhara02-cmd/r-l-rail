@@ -1,4 +1,4 @@
-# Ayushyaa Foods & Naturals - Fullstack eCommerce Platform
+# Roots & Leaves - Fullstack eCommerce Platform
 
 ## Architecture
 

@@ -25,7 +25,7 @@ export default function AdminPacking() {
       const { data, error } = await supabase
         .from('order_items')
         .select('product_name, variant_label, quantity, orders!inner(status)')
-        .in('orders.status', ['Paid', 'Pending'])
+        .eq('orders.status', 'Paid')
 
       if (error) throw error
 

@@ -1,9 +1,24 @@
 import { z } from 'zod'
-import { createRouter, publicQuery, adminQuery, adminMutation } from '../trpc-middleware'
+import { createRouter, adminQuery, adminMutation } from '../trpc-middleware'
 import { supabaseAdmin } from '../lib/supabase-admin'
 
+// Force Next.js recompile cache-bust
+
+const ORDER_STATUS_ENUM = z.enum(['Pending', 'Paid', 'Packed', 'Shipped', 'Delivered', 'Cancelled', 'Returned', 'RTO'])
+
+const VALID_TRANSITIONS: Record<string, string[]> = {
+  'Pending': ['Paid', 'Cancelled'],
+  'Paid': ['Packed', 'Cancelled'],
+  'Packed': ['Shipped', 'Cancelled'],
+  'Shipped': ['Delivered', 'Cancelled', 'Returned', 'RTO'],
+  'Delivered': [],
+  'Cancelled': [],
+  'Returned': [],
+  'RTO': [],
+}
+
 export const orderRouter = createRouter({
-  track: publicQuery
+  track: adminQuery
     .input(z.object({ query: z.string().trim().max(100) }))
     .query(async ({ input }) => {
       try {
@@ -90,19 +105,36 @@ export const orderRouter = createRouter({
     }),
 
   updateStatus: adminMutation
-    .input(z.object({ id: z.string(), status: z.string() }))
+    .input(z.object({ id: z.string().uuid(), status: ORDER_STATUS_ENUM }))
     .mutation(async ({ input }) => {
       try {
+        // 1. Fetch current status
+        const { data: currentOrder, error: fetchErr } = await supabaseAdmin
+          .from('orders')
+          .select('status')
+          .eq('id', input.id)
+          .single()
+
+        if (fetchErr || !currentOrder) throw new Error('Order not found')
+
+        const currentStatus = currentOrder.status
+        const allowedTargets = VALID_TRANSITIONS[currentStatus] || []
+
+        if (currentStatus !== input.status && !allowedTargets.includes(input.status)) {
+          throw new Error(`Invalid status transition: "${currentStatus}" to "${input.status}"`)
+        }
+
         const { data, error } = await supabaseAdmin
           .from('orders')
-          .update({ status: input.status })
+          .update({ status: input.status, updated_at: new Date().toISOString() })
           .eq('id', input.id)
           .select()
           .single()
+
         if (error) throw error
         return { order: data }
       } catch (err: any) {
-        return { error: err.message }
+        throw new Error(err.message || 'Failed to update order status')
       }
     }),
 
@@ -155,4 +187,50 @@ export const orderRouter = createRouter({
       return { totalSales: 0, pendingOrders: 0 }
     }
   }),
+
+  getAbandonedOrders: adminQuery
+    .query(async () => {
+      try {
+        const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+        const { data, error } = await supabaseAdmin
+          .from('orders')
+          .select('*, order_items(*)')
+          .eq('status', 'Pending')
+          .lt('created_at', cutoff)
+          .order('created_at', { ascending: false })
+        if (error) throw error
+        return { success: true, orders: data || [] }
+      } catch (err: any) {
+        return { success: false, error: err.message, orders: [] }
+      }
+    }),
+
+  delete: adminMutation
+    .input(z.object({ id: z.string().uuid() }))
+    .mutation(async ({ input }) => {
+      try {
+        // 1. Delete order items first (due to foreign key constraint)
+        await supabaseAdmin
+          .from('order_items')
+          .delete()
+          .eq('order_id', input.id)
+
+        // 2. Delete shipments (due to foreign key constraint)
+        await supabaseAdmin
+          .from('shipments')
+          .delete()
+          .eq('order_id', input.id)
+
+        // 3. Delete order
+        const { error } = await supabaseAdmin
+          .from('orders')
+          .delete()
+          .eq('id', input.id)
+
+        if (error) throw error
+        return { success: true }
+      } catch (err: any) {
+        throw new Error(err.message || 'Failed to delete order')
+      }
+    }),
 })

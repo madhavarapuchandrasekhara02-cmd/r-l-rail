@@ -6,7 +6,7 @@ import { TrendingUp, Clock, ShoppingCart, Package, ArrowRight, User, Calendar } 
 import { supabase } from '@/lib/supabase'
 
 export default function AdminDashboard() {
-  const [kpis, setKpis] = useState({ totalSales: 0, pendingOrders: 0, totalOrders: 0 })
+  const [kpis, setKpis] = useState({ totalSales: 0, pendingOrders: 0, totalOrders: 0, completionRate: 94, returnRate: '0.8' })
   const [recentOrders, setRecentOrders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -28,10 +28,24 @@ export default function AdminDashboard() {
           .from('orders')
           .select('id', { count: 'exact', head: true })
 
+        const { data: statusData } = await supabase
+          .from('orders')
+          .select('status')
+
+        const allOrders = statusData || []
+        const totalOrd = allOrders.length
+        const delivered = allOrders.filter(o => o.status === 'Delivered').length
+        const completed = allOrders.filter(o => ['Paid', 'Packed', 'Shipped', 'Delivered'].includes(o.status)).length
+        const completionRate = completed > 0 ? Math.round((delivered / completed) * 100) : 94
+        const returnedCount = allOrders.filter(o => ['Returned', 'RTO'].includes(o.status)).length
+        const returnRate = totalOrd > 0 ? ((returnedCount / totalOrd) * 100).toFixed(1) : '0.8'
+
         setKpis({
           totalSales: salesData?.reduce((s, o) => s + (o.total || 0), 0) || 0,
           pendingOrders: pendingData?.length || 0,
           totalOrders: ordersCount || 0,
+          completionRate,
+          returnRate
         })
 
         // Recent orders
@@ -69,13 +83,11 @@ export default function AdminDashboard() {
             <span className="text-[10px] font-semibold text-[#B37943]">System Active</span>
           </div>
         </div>
-      </header>
-
-      {/* KPI Cards */}
+      </header>      {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div className="bg-white rounded-2xl sm:rounded-[1.5rem] border border-[#E5C492] p-4 sm:p-6 shadow-xl shadow-[#4A3525]/5 relative overflow-hidden group">
+        <div className="bg-white rounded-2xl sm:rounded-[1.5rem] border border-[#E5C492] p-3.5 sm:p-6 shadow-xl shadow-[#4A3525]/5 relative overflow-hidden group">
           <div className="absolute -top-10 -right-10 w-24 h-24 bg-[#B37943]/5 rounded-full group-hover:scale-110 transition-transform duration-500" />
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-3.5 sm:mb-6">
             <div className="w-12 h-12 bg-[#B37943]/10 rounded-xl flex items-center justify-center text-[#B37943]">
               <TrendingUp className="w-6 h-6" />
             </div>
@@ -84,10 +96,10 @@ export default function AdminDashboard() {
           <p className="text-[10px] font-bold text-[#B37943] uppercase tracking-wider mb-1">Total Sales</p>
           <p className="text-2xl font-serif text-[#4A3525]">₹{kpis.totalSales.toLocaleString('en-IN')}</p>
         </div>
-
-        <div className="bg-white rounded-2xl sm:rounded-[1.5rem] border border-[#E5C492] p-4 sm:p-6 shadow-xl shadow-[#4A3525]/5 relative overflow-hidden group">
+ 
+        <div className="bg-white rounded-2xl sm:rounded-[1.5rem] border border-[#E5C492] p-3.5 sm:p-6 shadow-xl shadow-[#4A3525]/5 relative overflow-hidden group">
           <div className="absolute -top-10 -right-10 w-24 h-24 bg-[#B37943]/5 rounded-full group-hover:scale-110 transition-transform duration-500" />
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-3.5 sm:mb-6">
             <div className="w-12 h-12 bg-[#B37943]/10 rounded-xl flex items-center justify-center text-[#B37943]">
               <Clock className="w-6 h-6" />
             </div>
@@ -96,10 +108,10 @@ export default function AdminDashboard() {
           <p className="text-[10px] font-bold text-[#B37943] uppercase tracking-wider mb-1">Pending Orders</p>
           <p className="text-2xl font-serif text-[#4A3525]">{kpis.pendingOrders}</p>
         </div>
-
-        <div className="bg-white rounded-2xl sm:rounded-[1.5rem] border border-[#E5C492] p-4 sm:p-6 shadow-xl shadow-[#4A3525]/5 relative overflow-hidden group">
+ 
+        <div className="bg-white rounded-2xl sm:rounded-[1.5rem] border border-[#E5C492] p-3.5 sm:p-6 shadow-xl shadow-[#4A3525]/5 relative overflow-hidden group">
           <div className="absolute -top-10 -right-10 w-24 h-24 bg-[#4A3525]/5 rounded-full group-hover:scale-110 transition-transform duration-500" />
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-3.5 sm:mb-6">
             <div className="w-12 h-12 bg-[#4A3525]/10 rounded-xl flex items-center justify-center text-[#4A3525]">
               <ShoppingCart className="w-6 h-6" />
             </div>
@@ -210,10 +222,10 @@ export default function AdminDashboard() {
               <div>
                 <div className="flex justify-between items-end mb-1.5">
                   <span className="text-[9px] font-bold text-[#B37943] uppercase tracking-widest">Order Completion</span>
-                  <span className="text-xs font-serif text-[#4A3525]">94%</span>
+                  <span className="text-xs font-serif text-[#4A3525]">{kpis.completionRate}%</span>
                 </div>
                 <div className="h-2 bg-[#FAF9F6] rounded-full overflow-hidden border border-[#E5C492]">
-                  <div className="h-full bg-[#B37943] rounded-full" style={{ width: '94%' }} />
+                  <div className="h-full bg-[#B37943] rounded-full" style={{ width: `${kpis.completionRate}%` }} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3.5">
@@ -223,7 +235,7 @@ export default function AdminDashboard() {
                 </div>
                 <div className="p-3 bg-[#FAF9F6] rounded-xl border border-[#E5C492]">
                   <p className="text-[9px] font-bold text-[#B37943] uppercase tracking-widest mb-0.5">Returns</p>
-                  <p className="text-base font-serif text-[#4A3525]">0.8%</p>
+                  <p className="text-base font-serif text-[#4A3525]">{kpis.returnRate}%</p>
                 </div>
               </div>
             </div>

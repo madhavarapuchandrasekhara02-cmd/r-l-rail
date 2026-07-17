@@ -3,16 +3,19 @@ import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Truck, Eye, CheckCircle, Search, Filter, Calendar, MapPin, Phone, User, Package, ChevronRight, ChevronDown, ChevronUp, X, ExternalLink, MoreVertical, RefreshCw, AlertCircle, Printer, ArrowUpDown } from 'lucide-react'
 import { getPackedWeight, TARE_WEIGHT } from '@/lib/weight'
+import { trpc } from '@/providers/trpc'
+import { downloadBulkLabels } from '@/lib/pdf'
+import { toast } from 'sonner'
 
 const STATUS_OPTIONS = [
   { value: 'Pending', label: 'Pending', color: 'bg-amber-50 text-amber-700 border-amber-200' },
-  { value: 'Processing', label: 'Processing', color: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
   { value: 'Paid', label: 'Paid', color: 'bg-green-50 text-green-700 border-green-200' },
   { value: 'Packed', label: 'Packed', color: 'bg-orange-50 text-orange-700 border-orange-200' },
   { value: 'Shipped', label: 'Shipped', color: 'bg-blue-50 text-blue-700 border-blue-200' },
-  { value: 'In Transit', label: 'In Transit', color: 'bg-cyan-50 text-cyan-700 border-cyan-200' },
   { value: 'Delivered', label: 'Delivered', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
   { value: 'Cancelled', label: 'Cancelled', color: 'bg-rose-50 text-rose-700 border-rose-200' },
+  { value: 'Returned', label: 'Returned', color: 'bg-purple-50 text-purple-700 border-purple-200' },
+  { value: 'RTO', label: 'RTO', color: 'bg-red-50 text-red-700 border-red-200' },
 ]
 
 export default function AdminOrders() {
@@ -30,27 +33,15 @@ export default function AdminOrders() {
   const [filterTab, setFilterTab] = useState<'date' | 'range'>('date')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
 
+  const updateStatusMutation = trpc.order.updateStatus.useMutation()
+
   useEffect(() => {
     fetchOrders()
   }, [statusFilter, startDate, endDate])
 
   // Helper to securely trigger PDF downloads bypassing popup blockers & cookie limits on mobile
   const triggerLabelDownload = async (waybills: string[]) => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const token = session?.access_token || ''
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-      const downloadParam = isMobile ? '&download=true' : ''
-      const url = `/api/dispatch/labels?waybills=${waybills.join(',')}&token=${encodeURIComponent(token)}${downloadParam}`
-      
-      if (isMobile) {
-        window.location.href = url
-      } else {
-        window.open(url, '_blank')
-      }
-    } catch (err) {
-      console.error('Error triggering download:', err)
-    }
+    await downloadBulkLabels(waybills)
   }
 
   async function fetchOrders() {
@@ -85,31 +76,22 @@ export default function AdminOrders() {
   async function updateStatus(orderId: string, newStatus: string) {
     setUpdatingId(orderId)
     try {
-      const { error } = await supabase
-        .from('orders')
-        .update({ status: newStatus })
-        .eq('id', orderId)
-      
-      if (error) throw error
-
+      const res = await updateStatusMutation.mutateAsync({
+        id: orderId,
+        status: newStatus as any
+      })
 
       // Reload local state to synchronize
       await fetchOrders()
 
       // Update selectedOrder if it was active
       if (selectedOrder?.id === orderId) {
-        const { data: updatedOrder, error: orderErr } = await supabase
-          .from('orders')
-          .select('*, order_items(*), shipments(*)')
-          .eq('id', orderId)
-          .maybeSingle()
-        if (!orderErr && updatedOrder) {
-          setSelectedOrder(updatedOrder)
-        }
+        setSelectedOrder(res.order)
       }
-    } catch (err) {
+      toast.success(`Order status updated to ${newStatus}`)
+    } catch (err: any) {
       console.error(err)
-      alert('Failed to update status')
+      toast.error(err.message || 'Failed to update order status')
     } finally {
       setUpdatingId(null)
     }
@@ -549,7 +531,7 @@ export default function AdminOrders() {
         >
           All Logs
         </button>
-        {['Pending', 'Processing', 'Paid', 'Packed', 'Shipped', 'In Transit', 'Delivered', 'Cancelled'].map(status => (
+        {['Pending', 'Paid', 'Packed', 'Shipped', 'Delivered', 'Cancelled', 'Returned', 'RTO'].map(status => (
           <button 
             key={status}
             onClick={() => setStatusFilter(status)}

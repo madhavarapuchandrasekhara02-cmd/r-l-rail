@@ -61,7 +61,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [emblaRef, emblaApi] = useEmblaCarousel(
     { loop: true, duration: 40 },
-    [Autoplay({ delay: 8000, stopOnInteraction: false, stopOnMouseEnter: true })]
+    [Autoplay({ delay: 5000, stopOnInteraction: false, stopOnMouseEnter: true })]
   )
   const [testimonialsRef, testimonialsApi] = useEmblaCarousel(
     { loop: true, align: 'start' },
@@ -96,7 +96,6 @@ export default function Home() {
           .select(`*, product_variants(*)`)
           .order('display_order', { ascending: true })
           .order('created_at', { ascending: false })
-          .limit(8)
         if (error) { 
           console.error('Supabase error:', error.message || error)
           setLoading(false)
