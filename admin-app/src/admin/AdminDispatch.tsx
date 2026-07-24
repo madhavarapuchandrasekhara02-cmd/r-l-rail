@@ -246,7 +246,14 @@ export default function AdminDispatch() {
   const triggerLabelDownload = async (waybills: string[], existingToastId?: string | number) => {
     if (!waybills || waybills.length === 0) return
     const token = Date.now().toString()
-    const url = `/api/dispatch/labels?waybills=${waybills.join(',')}&download=true&downloadToken=${token}`
+    
+    // Extract JWT token from cookie to bypass browser SameSite=Strict constraints in iframes
+    const match = document.cookie.match(new RegExp('(^| )admin-token=([^;]+)'))
+    const adminToken = match ? decodeURIComponent(match[2]) : null
+    
+    const url = `/api/dispatch/labels?waybills=${waybills.join(',')}&download=true&downloadToken=${token}${
+      adminToken ? `&token=${encodeURIComponent(adminToken)}` : ''
+    }`
     
     const toastId = existingToastId || toast.loading('Compiling and downloading PDF labels...')
     
