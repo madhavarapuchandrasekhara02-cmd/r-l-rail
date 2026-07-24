@@ -250,8 +250,8 @@ export default function AdminDispatch() {
     
     const toastId = existingToastId || toast.loading('Compiling and downloading PDF labels...')
     
-    // Calculate dynamic timeout: 30 seconds base + 1.5 seconds per label
-    const dynamicTimeout = Math.max(45000, 30000 + (waybills.length * 1500))
+    // Calculate dynamic timeout: 90 seconds base + 3 seconds per label
+    const dynamicTimeout = Math.max(90000, 60000 + (waybills.length * 3000))
 
     const iframe = document.createElement('iframe')
     iframe.style.display = 'none'
