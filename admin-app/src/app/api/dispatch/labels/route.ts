@@ -190,12 +190,18 @@ export async function GET(req: NextRequest) {
 
     const disposition = download === 'true' ? 'attachment' : 'inline'
     const now = new Date()
-    const day = String(now.getDate()).padStart(2, '0')
-    const month = String(now.getMonth() + 1).padStart(2, '0')
-    const year = now.getFullYear()
-    const hours = String(now.getHours()).padStart(2, '0')
-    const minutes = String(now.getMinutes()).padStart(2, '0')
-    const filename = `shipping-labels_${day}-${month}-${year}_${hours}.${minutes}.pdf`
+    const formatter = new Intl.DateTimeFormat('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    })
+    const parts = formatter.formatToParts(now)
+    const partMap = Object.fromEntries(parts.map(p => [p.type, p.value]))
+    const filename = `shipping-labels_${partMap.day}-${partMap.month}-${partMap.year}_${partMap.hour}.${partMap.minute}.pdf`
 
     return new NextResponse(Buffer.from(mergedPdfBytes), {
       headers: {
