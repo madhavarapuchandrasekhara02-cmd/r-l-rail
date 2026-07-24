@@ -899,8 +899,8 @@ export default function AdminDispatch() {
                     <div className="grid grid-cols-2 gap-2">
                       {resultsData.packages.map((pkg: any, idx: number) => (
                         <div key={idx} className="bg-[#FAF9F6] border border-[#E5C492]/40 rounded-xl p-2.5 flex items-center justify-between text-[10px] font-semibold text-[#4A3525]">
-                          <span className="font-bold">{pkg.refnum}</span>
-                          <span className="font-mono text-[9px] text-[#B37943] bg-white px-1.5 py-0.5 rounded border border-[#E5C492]/30">AWB: {pkg.wbn}</span>
+                          <span className="font-bold">{pkg.orderNumber}</span>
+                          <span className="font-mono text-[9px] text-[#B37943] bg-white px-1.5 py-0.5 rounded border border-[#E5C492]/30">AWB: {pkg.waybill}</span>
                         </div>
                       ))}
                     </div>
