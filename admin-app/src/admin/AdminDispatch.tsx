@@ -97,7 +97,17 @@ export default function AdminDispatch() {
     setLoading(isLoadingOrders || isLoadingShipments)
   }, [isLoadingOrders, isLoadingShipments])
 
-  useEffect(() => { loadData() }, [])
+  useEffect(() => {
+    loadData()
+    // Clean up any stray downloadToken cookies from browser storage on mount
+    const cookies = document.cookie.split(';')
+    cookies.forEach(cookie => {
+      const name = cookie.split('=')[0].trim()
+      if (name.startsWith('downloadToken_')) {
+        document.cookie = `${name}=; Path=/; Max-Age=0`
+      }
+    })
+  }, [])
 
   async function loadData() {
     await Promise.all([refetchOrders(), refetchShipments()])
@@ -239,17 +249,21 @@ export default function AdminDispatch() {
     const url = `/api/dispatch/labels?waybills=${waybills.join(',')}&download=true&downloadToken=${token}`
     
     const toastId = existingToastId || toast.loading('Compiling and downloading PDF labels...')
+    
+    // Calculate dynamic timeout: 30 seconds base + 1.5 seconds per label
+    const dynamicTimeout = Math.max(45000, 30000 + (waybills.length * 1500))
 
     const iframe = document.createElement('iframe')
     iframe.style.display = 'none'
     iframe.src = url
     document.body.appendChild(iframe)
     
-    // Poll the document.cookie until the download token cookie is completed or 45 seconds timeout
+    // Poll the document.cookie until the download token cookie is completed or timeout is reached
     const checkInterval = setInterval(() => {
       const cookieName = `downloadToken_${token}=completed`
       if (document.cookie.includes(cookieName)) {
         clearInterval(checkInterval)
+        clearTimeout(timeoutId)
         toast.success('Labels downloaded successfully!', { id: toastId })
         if (document.body.contains(iframe)) {
           document.body.removeChild(iframe)
@@ -257,18 +271,20 @@ export default function AdminDispatch() {
         // Clean up the cookie
         document.cookie = `downloadToken_${token}=; Path=/; Max-Age=0`
       }
-    }, 400)
+    }, 500)
 
-    // Clear after 45s if not downloaded (failsafe timeout)
-    setTimeout(() => {
+    // Dynamic failsafe timeout
+    const timeoutId = setTimeout(() => {
       clearInterval(checkInterval)
       if (document.body.contains(iframe)) {
         document.body.removeChild(iframe)
       }
       if (!existingToastId) {
         toast.dismiss(toastId)
+      } else {
+        toast.error('Download timed out. Please try again.', { id: toastId })
       }
-    }, 45000)
+    }, dynamicTimeout)
   }
 
   const dispatchViaManualCourierMutation = trpc.dispatch.dispatchViaManualCourier.useMutation()
