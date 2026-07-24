@@ -216,6 +216,16 @@ export default function AdminDispatch() {
     setSelectedOrderIds(matches.map(o => o.id))
   }, [rangeFrom, rangeTo, currentList])
 
+  const getFormattedFilename = (prefix: string, extension: string) => {
+    const now = new Date()
+    const day = String(now.getDate()).padStart(2, '0')
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const year = now.getFullYear()
+    const hours = String(now.getHours()).padStart(2, '0')
+    const minutes = String(now.getMinutes()).padStart(2, '0')
+    return `${prefix}_${day}-${month}-${year}_${hours}.${minutes}.${extension}`
+  }
+
   // Helper to securely trigger PDF downloads bypassing popup blockers & cookie limits on mobile
   const triggerLabelDownload = async (waybills: string[]) => {
     if (!waybills || waybills.length === 0) return
@@ -299,7 +309,7 @@ export default function AdminDispatch() {
     }
 
     const doc = generateAlternativeCourierPDF(unserviceable);
-    doc.save(`unserviceable-orders-${new Date().toISOString().split('T')[0]}.pdf`);
+    doc.save(getFormattedFilename('unserviceable-orders', 'pdf'));
     toast.success(`Downloaded layout sheet for ${unserviceable.length} unserviceable orders!`);
   };
 
@@ -310,7 +320,7 @@ export default function AdminDispatch() {
       return
     }
     const doc = generateAlternativeCourierPDF(unserviceable)
-    doc.save(`unserviceable-orders-${new Date().toISOString().split('T')[0]}.pdf`)
+    doc.save(getFormattedFilename('unserviceable-orders', 'pdf'))
     toast.success(`Downloaded layout sheet for ${unserviceable.length} unserviceable orders!`)
   }
 
@@ -365,7 +375,7 @@ export default function AdminDispatch() {
     const toastId = toast.loading('Generating alternative shipping sheet...')
     try {
       const doc = generateAlternativeCourierPDF(matches)
-      doc.save(`courier-export-${rangeModalTab}-${new Date().toISOString().split('T')[0]}.pdf`)
+      doc.save(getFormattedFilename(`courier-export-${rangeModalTab}`, 'pdf'))
       toast.success('Alternative shipping sheet downloaded!', { id: toastId })
     } catch (err) {
       console.error(err)

@@ -42,6 +42,16 @@ const FINANCIAL_YEARS = [
 ]
 
 export default function AdminFinance() {
+  const getFormattedFilename = (prefix: string, extension: string) => {
+    const now = new Date()
+    const day = String(now.getDate()).padStart(2, '0')
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const year = now.getFullYear()
+    const hours = String(now.getHours()).padStart(2, '0')
+    const minutes = String(now.getMinutes()).padStart(2, '0')
+    return `${prefix}_${day}-${month}-${year}_${hours}.${minutes}.${extension}`
+  }
+
   const [loading, setLoading] = useState(true)
   const [orders, setOrders] = useState<any[]>([])
   
@@ -400,7 +410,7 @@ export default function AdminFinance() {
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
       const link = document.createElement('a')
       link.href = URL.createObjectURL(blob)
-      link.download = `Roots_Leaves_CA_Report_${selectedMonth}_${selectedYear}.xlsx`
+      link.download = getFormattedFilename('finance-reconciliation-sheet', 'xlsx')
       link.click()
       URL.revokeObjectURL(link.href)
     } catch (err) {
@@ -545,7 +555,7 @@ export default function AdminFinance() {
       doc.line(140, y - 5, 190, y - 5)
 
       // Save PDF instantly
-      doc.save(`Roots_Leaves_CA_Report_${selectedMonth}_${selectedYear}.pdf`)
+      doc.save(getFormattedFilename('finance-gst-report', 'pdf'))
       toast.success('PDF downloaded!', { id: toastId })
     } catch (err) {
       console.error('PDF export failed:', err)
