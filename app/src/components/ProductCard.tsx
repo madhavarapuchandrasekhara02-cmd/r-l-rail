@@ -31,6 +31,8 @@ export default function ProductCard({ id, name, slug, category, images, minPrice
     e.stopPropagation()
     if (!selectedVariant) return
     
+    const isCartEmptyBefore = items.length === 0
+    
     addItem({
       productId: id,
       variantId: selectedVariant.id,
@@ -41,7 +43,11 @@ export default function ProductCard({ id, name, slug, category, images, minPrice
       image: imageUrl
     })
     
-    useUIStore.getState().setCartOpen(true)
+    // Only open the cart drawer automatically on desktop AND for the first item added
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
+    if (!isMobile && isCartEmptyBefore) {
+      useUIStore.getState().setCartOpen(true)
+    }
   }
 
   const handleUpdateQty = (e: React.MouseEvent, newQty: number) => {

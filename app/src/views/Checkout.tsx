@@ -88,10 +88,17 @@ export default function Checkout() {
     const newErrors: Record<string, boolean> = {}
     if (!shippingInfo.fullName.trim()) newErrors.fullName = true
     
-    // Enforce Indian Phone standard (Starts with 6-9, 10 digits)
-    const phoneDigits = shippingInfo.phone.replace(/\D/g, '')
+    // Enforce Indian Phone standard (Normalize starts with +91, 91, 0, then check 10 digits starting with 6-9)
+    const cleanPhone = shippingInfo.phone.replace(/\D/g, '')
+    let normalizedPhone = cleanPhone
+    if (cleanPhone.length === 12 && cleanPhone.startsWith('91')) {
+      normalizedPhone = cleanPhone.substring(2)
+    } else if (cleanPhone.length === 11 && cleanPhone.startsWith('0')) {
+      normalizedPhone = cleanPhone.substring(1)
+    }
+    
     const phoneRegex = /^[6-9]\d{9}$/
-    if (!shippingInfo.phone.trim() || !phoneRegex.test(phoneDigits)) {
+    if (!shippingInfo.phone.trim() || !phoneRegex.test(normalizedPhone)) {
       newErrors.phone = true
     }
 
