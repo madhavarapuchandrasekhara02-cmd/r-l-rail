@@ -2,11 +2,13 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react'
 import { trpc } from '@/providers/trpc'
+import { Eye, EyeOff } from 'lucide-react'
 
 export default function AdminLogin() {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -73,14 +75,27 @@ export default function AdminLogin() {
               <label className="text-xs font-bold text-[#4A3525] uppercase tracking-widest mb-2 block px-1">
                 Security Key
               </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full px-5 py-4 bg-[#FAF9F6]/50 border border-[#E5C492] rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#B37943]/20 focus:bg-white transition-all duration-200"
-                onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full px-5 py-4 pr-12 bg-[#FAF9F6]/50 border border-[#E5C492] rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#B37943]/20 focus:bg-white transition-all duration-200"
+                  onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[#B37943] hover:text-[#4A3525] transition-colors focus:outline-none cursor-pointer"
+                >
+                  {showPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
             </div>
 
             {error && (

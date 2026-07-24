@@ -1054,3 +1054,18 @@
   background: rgba(240, 230, 217, 0.7);
   transform: translateY(-1px);
 }
+
+/* -- Sonner Toaster Mobile Overlay Refinement -- */
+@media (max-width: 640px) {
+  [data-sonner-toaster] {
+    --width: 320px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    right: auto !important;
+    top: 12px !important;
+  }
+  [data-sonner-toaster] [data-toast] {
+    width: 320px !important;
+    margin: 0 auto !important;
+  }
+}
