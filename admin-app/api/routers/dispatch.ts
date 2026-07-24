@@ -234,7 +234,7 @@ export const dispatchRouter = createRouter({
                 'INSERT INTO shipments (order_id, waybill, tracking_status, tracking_url, shipped_at) VALUES ($1, $2, $3, $4, $5)',
                 [
                   correspondingOrder.id,
-                  'UNSERVICEABLE',
+                  'UNSERVICEABLE-' + correspondingOrder.id,
                   'Pincode not serviceable',
                   null,
                   new Date().toISOString()

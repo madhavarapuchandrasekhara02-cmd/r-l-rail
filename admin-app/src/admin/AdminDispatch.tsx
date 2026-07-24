@@ -69,8 +69,8 @@ export default function AdminDispatch() {
   const getWaybillsMutation = trpc.dispatch.getWaybills.useMutation()
   const deleteOrderMutation = trpc.order.delete.useMutation()
 
-  const { data: listData, refetch: refetchOrders, isFetching: isFetchingOrders } = trpc.order.list.useQuery({ limit: 10000 })
-  const { data: shipmentsData, refetch: refetchShipments, isFetching: isFetchingShipments } = trpc.dispatch.getRecentShipments.useQuery()
+  const { data: listData, refetch: refetchOrders, isLoading: isLoadingOrders } = trpc.order.list.useQuery({ limit: 10000 })
+  const { data: shipmentsData, refetch: refetchShipments, isLoading: isLoadingShipments } = trpc.dispatch.getRecentShipments.useQuery()
 
   useEffect(() => {
     if (listData?.orders) {
@@ -91,8 +91,8 @@ export default function AdminDispatch() {
   }, [shipmentsData])
 
   useEffect(() => {
-    setLoading(isFetchingOrders || isFetchingShipments)
-  }, [isFetchingOrders, isFetchingShipments])
+    setLoading(isLoadingOrders || isLoadingShipments)
+  }, [isLoadingOrders, isLoadingShipments])
 
   useEffect(() => { loadData() }, [])
 
@@ -101,9 +101,7 @@ export default function AdminDispatch() {
   }
 
   // To bypass RLS on shipments for non-admins on frontend
-  const { data: recentShipments } = trpc.dispatch.getRecentShipments.useQuery(undefined, {
-    refetchInterval: 10000 
-  })
+  const { data: recentShipments } = trpc.dispatch.getRecentShipments.useQuery(undefined)
 
   // Group items by tabs
   const { actionOrders, awaitingOrders, inTransitOrders, exceptionOrders } = useMemo(() => {
