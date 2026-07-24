@@ -24,7 +24,8 @@ import {
   ChevronUp,
   Send,
   X,
-  FileText
+  FileText,
+  Download
 } from 'lucide-react'
 
 export default function AdminDispatch() {
@@ -35,6 +36,8 @@ export default function AdminDispatch() {
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTab, setActiveTab] = useState<'action' | 'awaiting' | 'intransit' | 'exceptions'>('action')
   const [shipmentResults, setShipmentResults] = useState<any>(null)
+  const [showResultsModal, setShowResultsModal] = useState(false)
+  const [resultsData, setResultsData] = useState<any>(null)
   
   // Pickup form
   const [showPickupModal, setShowPickupModal] = useState(false)
@@ -215,7 +218,13 @@ export default function AdminDispatch() {
 
   // Helper to securely trigger PDF downloads bypassing popup blockers & cookie limits on mobile
   const triggerLabelDownload = async (waybills: string[]) => {
-    await downloadBulkLabels(waybills)
+    if (!waybills || waybills.length === 0) return
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+    if (isMobile) {
+      window.location.href = `/api/dispatch/labels?waybills=${waybills.join(',')}&download=true`
+    } else {
+      window.open(`/api/dispatch/labels?waybills=${waybills.join(',')}&download=true`, '_blank')
+    }
   }
 
   const dispatchViaManualCourierMutation = trpc.dispatch.dispatchViaManualCourier.useMutation()
@@ -263,6 +272,36 @@ export default function AdminDispatch() {
       toast.error(err.message || 'Failed to delete order')
     }
   }
+
+  const handlePrintUnserviceableAction = () => {
+    let targetOrders = actionOrders;
+    
+    // 1. If explicit checkboxes are selected, filter them
+    if (selectedOrderIds.length > 0) {
+      targetOrders = actionOrders.filter(o => selectedOrderIds.includes(o.id));
+    } 
+    // 2. If range parameters are entered, filter by range
+    else if (rangeFrom || rangeTo) {
+      const start = rangeFrom ? parseInt(rangeFrom, 10) : 0;
+      const end = rangeTo ? parseInt(rangeTo, 10) : 999999;
+      targetOrders = actionOrders.filter(o => {
+        const oNum = parseInt(o.order_number?.replace(/[^0-9]/g, '') || '0', 10);
+        return oNum >= start && oNum <= end;
+      });
+    }
+
+    // 3. Filter only unserviceable ones from target orders
+    const unserviceable = targetOrders.filter(o => o.shipments?.[0]?.waybill === 'UNSERVICEABLE');
+    
+    if (unserviceable.length === 0) {
+      toast.error('No unserviceable orders found in selection/range.');
+      return;
+    }
+
+    const doc = generateAlternativeCourierPDF(unserviceable);
+    doc.save(`unserviceable-orders-${new Date().toISOString().split('T')[0]}.pdf`);
+    toast.success(`Downloaded layout sheet for ${unserviceable.length} unserviceable orders!`);
+  };
 
   const handlePrintUnserviceablePDF = () => {
     const unserviceable = actionOrders.filter(o => o.shipments?.[0]?.waybill === 'UNSERVICEABLE')
@@ -344,20 +383,11 @@ export default function AdminDispatch() {
     try {
       const res = await generateLabelsMutation.mutateAsync({ orderIds: selectedOrderIds })
       setShipmentResults(res)
+      setResultsData(res)
+      setShowResultsModal(true)
       loadData()
       setSelectedOrderIds([])
-      
-      if (!res.success && res.errors?.length) {
-        toast.error(res.errors[0]?.reason || 'Label generation failed', { id: loadingToastId })
-      } else if (res.errors?.length) {
-        toast.success(`Generated ${res.packages?.length || 0} labels. ${res.errors.length} failed.`, { id: loadingToastId })
-      } else {
-        toast.success(`Successfully generated ${res.packages?.length || 0} labels!`, { id: loadingToastId })
-        // Optional: Auto download labels if all succeeded
-        if (res.waybills && res.waybills.length > 0) {
-          triggerLabelDownload(res.waybills)
-        }
-      }
+      toast.dismiss(loadingToastId)
     } catch (err: any) {
       toast.error(err.message || 'Failed to generate labels', { id: loadingToastId })
     }
@@ -617,13 +647,22 @@ export default function AdminDispatch() {
             </button>
           )}
           
-          <button
-            onClick={handlePrintSelected}
-            disabled={selectedOrderIds.length === 0}
-            className="h-9 px-4 bg-white border border-[#E5C492] text-[#4A3525] hover:bg-[#FAF3E8] rounded-xl text-[10px] font-sans font-bold uppercase tracking-wider transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2 active:scale-[0.98] flex-1 sm:flex-none justify-center"
-          >
-            <FileText className="w-3.5 h-3.5 text-[#B37943]" /> PDF Labels
-          </button>
+          {activeTab === 'action' ? (
+            <button
+              onClick={handlePrintUnserviceableAction}
+              className="h-9 px-4 bg-white border border-[#E5C492] text-[#4A3525] hover:bg-[#FAF3E8] rounded-xl text-[10px] font-sans font-bold uppercase tracking-wider transition-all flex items-center gap-2 active:scale-[0.98] flex-1 sm:flex-none justify-center"
+            >
+              <FileText className="w-3.5 h-3.5 text-rose-500" /> Print Unserviceable
+            </button>
+          ) : (
+            <button
+              onClick={handlePrintSelected}
+              disabled={selectedOrderIds.length === 0}
+              className="h-9 px-4 bg-white border border-[#E5C492] text-[#4A3525] hover:bg-[#FAF3E8] rounded-xl text-[10px] font-sans font-bold uppercase tracking-wider transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2 active:scale-[0.98] flex-1 sm:flex-none justify-center"
+            >
+              <FileText className="w-3.5 h-3.5 text-[#B37943]" /> PDF Labels
+            </button>
+          )}
           
 
         </div>
@@ -781,6 +820,111 @@ export default function AdminDispatch() {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Label Generation Results Summary Modal */}
+      {showResultsModal && resultsData && (
+        <div className="fixed inset-0 bg-[#4A3525]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden border border-[#E5C492] animate-in zoom-in-95 duration-200">
+            <div className="p-6 bg-[#FAF9F6] border-b border-[#E5C492] flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-[#FAF3E8] rounded-full flex items-center justify-center text-[#B37943]">
+                  <Printer className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-serif text-[#4A3525] text-xl font-bold">Label Generation Summary</h3>
+                  <p className="text-[10px] uppercase tracking-widest font-sans font-bold text-[#B37943]">Processing Results</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => {
+                  setShowResultsModal(false)
+                  setResultsData(null)
+                }} 
+                className="p-2 hover:bg-white rounded-xl transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5 text-[#4A3525]" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              {/* Success Info Banner */}
+              <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex items-start gap-3">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="text-xs font-bold text-emerald-800 uppercase tracking-wide">
+                    {resultsData.packages?.length || 0} Labels Successfully Generated
+                  </h4>
+                  {resultsData.waybills && resultsData.waybills.length > 0 ? (
+                    <p className="text-[10px] text-emerald-600 font-medium mt-1 font-sans">
+                      These orders have been moved to the <strong className="text-emerald-700">Awaiting Courier</strong> tab.
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-emerald-600 font-medium mt-1 font-sans">
+                      No new shipping labels were generated in this batch.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Lists section */}
+              <div className="space-y-4 max-h-[30vh] overflow-y-auto custom-scrollbar pr-1">
+                {/* Successful waybills list */}
+                {resultsData.packages && resultsData.packages.length > 0 && (
+                  <div className="space-y-2">
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-[#B37943]">Generated Shipments</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      {resultsData.packages.map((pkg: any, idx: number) => (
+                        <div key={idx} className="bg-[#FAF9F6] border border-[#E5C492]/40 rounded-xl p-2.5 flex items-center justify-between text-[10px] font-semibold text-[#4A3525]">
+                          <span className="font-bold">{pkg.refnum}</span>
+                          <span className="font-mono text-[9px] text-[#B37943] bg-white px-1.5 py-0.5 rounded border border-[#E5C492]/30">AWB: {pkg.wbn}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Failed / Unserviceable list */}
+                {resultsData.errors && resultsData.errors.length > 0 && (
+                  <div className="space-y-2">
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-rose-500">Unserviceable / Failed ({resultsData.errors.length})</span>
+                    <div className="space-y-1.5">
+                      {resultsData.errors.map((err: any, idx: number) => (
+                        <div key={idx} className="bg-rose-50/50 border border-rose-100 rounded-xl p-2.5 text-[10px] font-semibold text-rose-700 flex items-start gap-1.5 leading-normal">
+                          <span className="font-bold text-rose-800">{err.orderNumber || 'System'}:</span>
+                          <span className="flex-1 font-sans">{err.reason}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              {/* Footer action buttons */}
+              <div className="flex items-center gap-3 pt-4 border-t border-[#FAF3E8]">
+                {resultsData.waybills && resultsData.waybills.length > 0 && (
+                  <button
+                    onClick={() => {
+                      triggerLabelDownload(resultsData.waybills)
+                    }}
+                    className="flex-1 h-11 bg-[#4A3525] text-white hover:bg-[#32241b] rounded-2xl text-[10px] font-sans font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 active:scale-[0.98] shadow-md cursor-pointer"
+                  >
+                    <Download className="w-4 h-4" /> Download PDF Labels
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    setShowResultsModal(false)
+                    setResultsData(null)
+                  }}
+                  className="flex-1 h-11 bg-white border border-[#E5C492] text-[#4A3525] hover:bg-[#FAF9F6] rounded-2xl text-[10px] font-sans font-bold uppercase tracking-wider transition-all flex items-center justify-center active:scale-[0.98] cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

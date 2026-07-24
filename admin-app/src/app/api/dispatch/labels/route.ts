@@ -62,6 +62,7 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url)
     const waybills = searchParams.get('waybills')
+    const download = searchParams.get('download')
 
     if (!waybills) {
       return new NextResponse('Missing waybills parameter', { status: 400 })
@@ -71,38 +72,43 @@ export async function GET(req: NextRequest) {
       return new NextResponse('Delhivery API token is not configured', { status: 500 })
     }
 
-    // Call Delhivery API with a strict 15-second timeout limit
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 15000)
+    const waybillList = waybills.split(',').map(w => w.trim()).filter(Boolean)
+    
+    // Call Delhivery API in parallel for each waybill to prevent one invalid AWB from breaking the batch
+    const fetchPromises = waybillList.map(async (wbn) => {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 15000)
+      
+      try {
+        const delhiveryUrl = `${DELHIVERY_BASE}/api/p/packing_slip?wbns=${wbn}&pdf=true`
+        const response = await fetch(delhiveryUrl, {
+          headers: {
+            'Authorization': `Token ${DELHIVERY_API_TOKEN}`,
+          },
+          signal: controller.signal
+        })
+        clearTimeout(timeoutId)
+        
+        if (!response.ok) {
+          console.warn(`[Labels API] Delhivery rejected waybill ${wbn} with status:`, response.status)
+          return null
+        }
+        
+        const json = await response.json()
+        return json.packages?.[0] || null
+      } catch (err: any) {
+        clearTimeout(timeoutId)
+        console.error(`[Labels API] Failed to fetch waybill ${wbn}:`, err.message || err)
+        return null
+      }
+    })
 
-    let response;
-    try {
-      const delhiveryUrl = `${DELHIVERY_BASE}/api/p/packing_slip?wbns=${waybills}&pdf=true`
-      console.log('[Labels API] Fetching from Delhivery:', delhiveryUrl)
+    const packageResults = await Promise.all(fetchPromises)
+    const validPackages = packageResults.filter(Boolean)
 
-      response = await fetch(delhiveryUrl, {
-        headers: {
-          'Authorization': `Token ${DELHIVERY_API_TOKEN}`,
-        },
-        signal: controller.signal
-      })
-      clearTimeout(timeoutId)
-    } catch (err: any) {
-      clearTimeout(timeoutId)
-      console.error('[Labels API] Delhivery fetch timed out or failed:', err.message || err)
-      return new NextResponse('Error: Fetching labels from Delhivery API timed out or failed. Please try again.', { status: 504 })
-    }
-
-    if (!response.ok) {
-      console.error('[Labels API] Delhivery error status:', response.status)
-      const text = await response.text().catch(() => '')
-      return new NextResponse(`Error: Delhivery API returned error status ${response.status}. Detail: ${text}`, { status: response.status })
-    }
-
-    const json = await response.json()
-    if (!json.packages || json.packages.length === 0) {
-       console.error('[Labels API] No packages found in Delhivery response.')
-       return new NextResponse('Error: Delhivery returned no package information for the requested waybills. Verify that the tracking IDs exist and are active on your Delhivery account.', { status: 404 })
+    if (validPackages.length === 0) {
+      console.error('[Labels API] No valid packages found in Delhivery response for any of the waybills.')
+      return new NextResponse('Error: Delhivery returned no package information for the requested waybills. Verify that the tracking IDs exist and are active on your Delhivery account.', { status: 404 })
     }
 
     // Create a new PDF document to merge all labels into one
@@ -110,7 +116,7 @@ export async function GET(req: NextRequest) {
     const embeddedPages: any[] = []
 
     // Fetch S3 PDFs in parallel using Promise.all to bypass sequential loop lag
-    const downloadPromises = json.packages.map(async (pkg: any) => {
+    const downloadPromises = validPackages.map(async (pkg: any) => {
       if (!pkg.pdf_download_link) return null;
       try {
         const s3Controller = new AbortController()
@@ -183,12 +189,12 @@ export async function GET(req: NextRequest) {
     const mergedPdfBytes = await mergedPdf.save()
 
     // Return the combined PDF to the browser
-    const disposition = 'inline'
+    const disposition = download === 'true' ? 'attachment' : 'inline'
 
     return new NextResponse(Buffer.from(mergedPdfBytes), {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `${disposition}; filename="labels-${waybills.split(',')[0]}.pdf"`,
+        'Content-Disposition': `${disposition}; filename="shipping-labels-${new Date().toISOString().split('T')[0]}.pdf"`,
         'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
         'Pragma': 'no-cache',
         'Expires': '0',
