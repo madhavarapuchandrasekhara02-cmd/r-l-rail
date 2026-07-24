@@ -410,7 +410,7 @@ export default function AdminFinance() {
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
       const link = document.createElement('a')
       link.href = URL.createObjectURL(blob)
-      link.download = getFormattedFilename('finance-reconciliation-sheet', 'xlsx')
+      link.download = getFormattedFilename('financial-excel-sheet', 'xlsx')
       link.click()
       URL.revokeObjectURL(link.href)
     } catch (err) {
