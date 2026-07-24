@@ -235,12 +235,17 @@ export default function AdminDispatch() {
   // Helper to securely trigger PDF downloads bypassing popup blockers & cookie limits on mobile
   const triggerLabelDownload = async (waybills: string[]) => {
     if (!waybills || waybills.length === 0) return
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
-    if (isMobile) {
-      window.location.href = `/api/dispatch/labels?waybills=${waybills.join(',')}&download=true`
-    } else {
-      window.open(`/api/dispatch/labels?waybills=${waybills.join(',')}&download=true`, '_blank')
-    }
+    const url = `/api/dispatch/labels?waybills=${waybills.join(',')}&download=true`
+    
+    const iframe = document.createElement('iframe')
+    iframe.style.display = 'none'
+    iframe.src = url
+    document.body.appendChild(iframe)
+    
+    // Clean up from DOM after 1 minute to prevent memory leak
+    setTimeout(() => {
+      document.body.removeChild(iframe)
+    }, 60000)
   }
 
   const dispatchViaManualCourierMutation = trpc.dispatch.dispatchViaManualCourier.useMutation()
