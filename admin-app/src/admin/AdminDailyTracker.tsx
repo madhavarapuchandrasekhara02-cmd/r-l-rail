@@ -17,6 +17,13 @@ export default function AdminDailyTracker() {
     return s === 'paid'
   }
 
+  const parseDate = (d: any) => {
+    if (!d) return new Date(0)
+    if (d instanceof Date) return d
+    if (typeof d === 'string') return parseISO(d)
+    return new Date(d)
+  }
+
   const daysInMonth = useMemo(() => {
     return eachDayOfInterval({
       start: startOfMonth(currentMonth),
@@ -27,7 +34,7 @@ export default function AdminDailyTracker() {
   // Get orders for the selected date
   const selectedDateOrders = useMemo(() => {
     return orders.filter(o => {
-      const orderDate = parseISO(o.created_at)
+      const orderDate = parseDate(o.created_at)
       return isSameDay(orderDate, selectedDate) && isPendingOrder(o.status)
     })
   }, [orders, selectedDate])
@@ -79,8 +86,8 @@ export default function AdminDailyTracker() {
 
             {daysInMonth.map(day => {
               // Calculate pending orders for this specific day
-              const pendingCount = orders.filter(o => isSameDay(parseISO(o.created_at), day) && isPendingOrder(o.status)).length
-              const totalCount = orders.filter(o => isSameDay(parseISO(o.created_at), day)).length
+              const pendingCount = orders.filter(o => isSameDay(parseDate(o.created_at), day) && isPendingOrder(o.status)).length
+              const totalCount = orders.filter(o => isSameDay(parseDate(o.created_at), day)).length
               
               const isToday = isSameDay(day, startOfToday())
               const isSelected = isSameDay(day, selectedDate)
