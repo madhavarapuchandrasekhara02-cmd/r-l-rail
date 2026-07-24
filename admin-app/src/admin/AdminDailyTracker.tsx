@@ -1,35 +1,15 @@
 "use client";
-import { useState, useEffect, useMemo } from 'react'
-import { supabase } from '@/lib/supabase'
+import { useState, useMemo } from 'react'
 import { Calendar as CalendarIcon, CheckCircle2, ChevronLeft, ChevronRight, AlertCircle, Package } from 'lucide-react'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isBefore, startOfToday, parseISO } from 'date-fns'
+import { trpc } from '@/providers/trpc'
 
 export default function AdminDailyTracker() {
-  const [orders, setOrders] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data: orders = [], isLoading } = trpc.order.getTrackerOrders.useQuery()
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState<Date>(startOfToday())
 
-  useEffect(() => {
-    async function fetchAllOrders() {
-      setLoading(true)
-      try {
-        const { data, error } = await supabase
-          .from('orders')
-          .select('id, order_number, created_at, status, customer_name, total')
-          .neq('status', 'Pending')
-          .order('created_at', { ascending: true })
-
-        if (error) throw error
-        setOrders(data || [])
-      } catch (err) {
-        console.error(err)
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchAllOrders()
-  }, [])
+  const loading = isLoading
 
   // Identify orders that are paid and waiting for packing
   const isPendingOrder = (status: string) => {

@@ -6,8 +6,6 @@ import { useEffect, useState } from 'react'
 
 import { LayoutDashboard, Package, ClipboardList, Boxes, Truck, LogOut, Menu, X, BarChart3, Calculator, Search, FileText, Calendar, ChevronDown, ChevronUp } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { supabase } from '@/lib/supabase'
-
 import { trpc } from '@/providers/trpc'
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -29,23 +27,28 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       return 
     }
 
+    const getCookie = (name: string) => {
+      if (typeof document === 'undefined') return null
+      const value = `; ${document.cookie}`
+      const parts = value.split(`; ${name}=`)
+      if (parts.length === 2) return decodeURIComponent(parts.pop()!.split(';').shift()!)
+      return null
+    }
+
     async function checkAuth() {
-      const { data } = await supabase.auth.getSession()
-      if (!data.session) {
+      const token = getCookie('admin-token')
+      if (!token) {
         router.push('/login')
       } else {
-        // Set cookie first so the backend API can authorize the request
-        document.cookie = `sb-access-token=${encodeURIComponent(data.session.access_token)}; path=/; max-age=86400`
-
         try {
           const res = await checkRole()
           if (res.error) throw res.error
           
-          setSession(data.session)
+          setSession({ user: { email: 'admin@rootsandleaves.in' } })
           setLoading(false)
         } catch (err) {
           alert("Access Denied: You are not authorized to access the admin portal.")
-          await supabase.auth.signOut()
+          document.cookie = 'admin-token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;'
           router.push('/login')
         }
       }
@@ -53,10 +56,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     checkAuth()
   }, [router, isLoginPage, location, checkRole])
 
-
-
   const handleLogout = async () => {
-    await supabase.auth.signOut()
+    document.cookie = 'admin-token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;'
     router.push('/login')
   }
   const [showAdvanced, setShowAdvanced] = useState(false)
