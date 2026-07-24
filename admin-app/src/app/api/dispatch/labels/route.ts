@@ -63,6 +63,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url)
     const waybills = searchParams.get('waybills')
     const download = searchParams.get('download')
+    const downloadToken = searchParams.get('downloadToken')
 
     if (!waybills) {
       return new NextResponse('Missing waybills parameter', { status: 400 })
@@ -203,14 +204,20 @@ export async function GET(req: NextRequest) {
     const partMap = Object.fromEntries(parts.map(p => [p.type, p.value]))
     const filename = `shipping-labels_${partMap.day}-${partMap.month}-${partMap.year}_${partMap.hour}.${partMap.minute}.pdf`
 
+    const responseHeaders: Record<string, string> = {
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `${disposition}; filename="${filename}"`,
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+    }
+
+    if (downloadToken) {
+      responseHeaders['Set-Cookie'] = `downloadToken_${downloadToken}=completed; Path=/; Max-Age=60; SameSite=Lax`
+    }
+
     return new NextResponse(Buffer.from(mergedPdfBytes), {
-      headers: {
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `${disposition}; filename="${filename}"`,
-        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0',
-      },
+      headers: responseHeaders,
     })
   } catch (error: any) {
     console.error('[Labels API] Exception:', error)

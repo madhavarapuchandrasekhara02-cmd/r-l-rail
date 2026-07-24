@@ -233,19 +233,42 @@ export default function AdminDispatch() {
   }
 
   // Helper to securely trigger PDF downloads bypassing popup blockers & cookie limits on mobile
-  const triggerLabelDownload = async (waybills: string[]) => {
+  const triggerLabelDownload = async (waybills: string[], existingToastId?: string | number) => {
     if (!waybills || waybills.length === 0) return
-    const url = `/api/dispatch/labels?waybills=${waybills.join(',')}&download=true`
+    const token = Date.now().toString()
+    const url = `/api/dispatch/labels?waybills=${waybills.join(',')}&download=true&downloadToken=${token}`
     
+    const toastId = existingToastId || toast.loading('Compiling and downloading PDF labels...')
+
     const iframe = document.createElement('iframe')
     iframe.style.display = 'none'
     iframe.src = url
     document.body.appendChild(iframe)
     
-    // Clean up from DOM after 1 minute to prevent memory leak
+    // Poll the document.cookie until the download token cookie is completed or 45 seconds timeout
+    const checkInterval = setInterval(() => {
+      const cookieName = `downloadToken_${token}=completed`
+      if (document.cookie.includes(cookieName)) {
+        clearInterval(checkInterval)
+        toast.success('Labels downloaded successfully!', { id: toastId })
+        if (document.body.contains(iframe)) {
+          document.body.removeChild(iframe)
+        }
+        // Clean up the cookie
+        document.cookie = `downloadToken_${token}=; Path=/; Max-Age=0`
+      }
+    }, 400)
+
+    // Clear after 45s if not downloaded (failsafe timeout)
     setTimeout(() => {
-      document.body.removeChild(iframe)
-    }, 60000)
+      clearInterval(checkInterval)
+      if (document.body.contains(iframe)) {
+        document.body.removeChild(iframe)
+      }
+      if (!existingToastId) {
+        toast.dismiss(toastId)
+      }
+    }, 45000)
   }
 
   const dispatchViaManualCourierMutation = trpc.dispatch.dispatchViaManualCourier.useMutation()
@@ -443,8 +466,8 @@ export default function AdminDispatch() {
         toast.error('No labels found for selected orders. Generate labels first.', { id: toastId })
         return
       }
-      toast.success('Downloading batch PDF...', { id: toastId })
-      triggerLabelDownload(waybills)
+      toast.loading('Compiling and downloading PDF labels...', { id: toastId })
+      triggerLabelDownload(waybills, toastId)
     } catch (err) {
       toast.error('Failed to fetch labels', { id: toastId })
     }
@@ -891,37 +914,19 @@ export default function AdminDispatch() {
               </div>
 
               {/* Lists section */}
-              <div className="space-y-4 max-h-[30vh] overflow-y-auto custom-scrollbar pr-1">
-                {/* Successful waybills list */}
-                {resultsData.packages && resultsData.packages.length > 0 && (
-                  <div className="space-y-2">
-                    <span className="text-[9px] font-bold uppercase tracking-widest text-[#B37943]">Generated Shipments</span>
-                    <div className="grid grid-cols-2 gap-2">
-                      {resultsData.packages.map((pkg: any, idx: number) => (
-                        <div key={idx} className="bg-[#FAF9F6] border border-[#E5C492]/40 rounded-xl p-2.5 flex items-center justify-between text-[10px] font-semibold text-[#4A3525]">
-                          <span className="font-bold">{pkg.orderNumber}</span>
-                          <span className="font-mono text-[9px] text-[#B37943] bg-white px-1.5 py-0.5 rounded border border-[#E5C492]/30">AWB: {pkg.waybill}</span>
-                        </div>
-                      ))}
-                    </div>
+              {resultsData.errors && resultsData.errors.length > 0 && (
+                <div className="space-y-2">
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-rose-500">Unserviceable / Failed Orders ({resultsData.errors.length})</span>
+                  <div className="space-y-1.5 max-h-[160px] overflow-y-auto custom-scrollbar pr-1">
+                    {resultsData.errors.map((err: any, idx: number) => (
+                      <div key={idx} className="bg-rose-50/50 border border-rose-100 rounded-xl p-2.5 text-[10px] font-semibold text-rose-700 flex items-start gap-1.5 leading-normal">
+                        <span className="font-bold text-rose-800">{err.orderNumber || 'System'}:</span>
+                        <span className="flex-1 font-sans">{err.reason}</span>
+                      </div>
+                    ))}
                   </div>
-                )}
-
-                {/* Failed / Unserviceable list */}
-                {resultsData.errors && resultsData.errors.length > 0 && (
-                  <div className="space-y-2">
-                    <span className="text-[9px] font-bold uppercase tracking-widest text-rose-500">Unserviceable / Failed ({resultsData.errors.length})</span>
-                    <div className="space-y-1.5">
-                      {resultsData.errors.map((err: any, idx: number) => (
-                        <div key={idx} className="bg-rose-50/50 border border-rose-100 rounded-xl p-2.5 text-[10px] font-semibold text-rose-700 flex items-start gap-1.5 leading-normal">
-                          <span className="font-bold text-rose-800">{err.orderNumber || 'System'}:</span>
-                          <span className="flex-1 font-sans">{err.reason}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+                </div>
+              )}
               
               {/* Footer action buttons */}
               <div className="flex items-center gap-3 pt-4 border-t border-[#FAF3E8]">
