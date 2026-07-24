@@ -3,11 +3,6 @@ import { z } from "zod";
 import "dotenv/config"; // Ensure variables are loaded if not run via Next.js directly
 
 const envSchema = z.object({
-  // Supabase
-  NEXT_PUBLIC_SUPABASE_URL: z.string().url("Must be a valid URL"),
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1, "Anon key is required"),
-  SUPABASE_URL: z.string().url("Must be a valid URL").optional(),
-  SUPABASE_SERVICE_KEY: z.string().min(1, "Service key is required"),
 
   // Razorpay
   NEXT_PUBLIC_RAZORPAY_KEY_ID: z.string().min(1, "Razorpay Key ID is required"),
@@ -22,8 +17,8 @@ const envSchema = z.object({
   DELHIVERY_CLIENT_NAME: z.string().min(1, "Client name is required"),
   DELHIVERY_WEBHOOK_SECRET: z.string().min(1, "Delhivery Webhook Secret is required"),
 
-  // Legacy DB
-  DATABASE_URL: z.string().optional(),
+  // Database Connection
+  DATABASE_URL: z.string().min(1, "Database URL is required"),
 
   // Seller Details (Only state is needed for GST CGST/IGST tax calculation)
   SELLER_STATE: z.string().min(1, "Seller state is required"),

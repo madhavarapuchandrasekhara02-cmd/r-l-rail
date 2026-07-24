@@ -1,69 +1,37 @@
 "use client";
 import Link from 'next/link';
-import { useEffect, useState } from 'react'
-
-import { TrendingUp, Clock, ShoppingCart, Package, ArrowRight, User, Calendar } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { TrendingUp, Clock, ShoppingCart, ArrowRight } from 'lucide-react'
+import { trpc } from '@/providers/trpc'
 
 export default function AdminDashboard() {
-  const [kpis, setKpis] = useState({ totalSales: 0, pendingOrders: 0, totalOrders: 0, completionRate: 94, returnRate: '0.8' })
-  const [recentOrders, setRecentOrders] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data, isLoading } = trpc.order.getDashboardData.useQuery()
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        // KPIs
-        const { data: salesData } = await supabase
-          .from('orders')
-          .select('total')
-          .in('status', ['Paid', 'Shipped', 'Delivered'])
+  const kpis = {
+    totalSales: data?.totalSales || 0,
+    pendingOrders: data?.pendingOrders || 0,
+    totalOrders: data?.totalOrders || 0,
+    completionRate: (() => {
+      if (!data) return 94
+      const statusCounts = data.statusCounts || []
+      const delivered = statusCounts.find((s: any) => s.status === 'Delivered')?.count || 0
+      const completed = statusCounts
+        .filter((s: any) => ['Paid', 'Packed', 'Shipped', 'Delivered'].includes(s.status))
+        .reduce((sum: number, s: any) => sum + s.count, 0)
+      return completed > 0 ? Math.round((delivered / completed) * 100) : 94
+    })(),
+    returnRate: (() => {
+      if (!data) return '0.8'
+      const statusCounts = data.statusCounts || []
+      const totalOrd = data.totalOrders || 0
+      const returnedCount = statusCounts
+        .filter((s: any) => ['Returned', 'RTO'].includes(s.status))
+        .reduce((sum: number, s: any) => sum + s.count, 0)
+      return totalOrd > 0 ? ((returnedCount / totalOrd) * 100).toFixed(1) : '0.8'
+    })()
+  }
 
-        const { data: pendingData } = await supabase
-          .from('orders')
-          .select('id')
-          .eq('status', 'Pending')
-
-        const { count: ordersCount } = await supabase
-          .from('orders')
-          .select('id', { count: 'exact', head: true })
-
-        const { data: statusData } = await supabase
-          .from('orders')
-          .select('status')
-
-        const allOrders = statusData || []
-        const totalOrd = allOrders.length
-        const delivered = allOrders.filter(o => o.status === 'Delivered').length
-        const completed = allOrders.filter(o => ['Paid', 'Packed', 'Shipped', 'Delivered'].includes(o.status)).length
-        const completionRate = completed > 0 ? Math.round((delivered / completed) * 100) : 94
-        const returnedCount = allOrders.filter(o => ['Returned', 'RTO'].includes(o.status)).length
-        const returnRate = totalOrd > 0 ? ((returnedCount / totalOrd) * 100).toFixed(1) : '0.8'
-
-        setKpis({
-          totalSales: salesData?.reduce((s, o) => s + (o.total || 0), 0) || 0,
-          pendingOrders: pendingData?.length || 0,
-          totalOrders: ordersCount || 0,
-          completionRate,
-          returnRate
-        })
-
-        // Recent orders
-        const { data: orders } = await supabase
-          .from('orders')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(5)
-
-        setRecentOrders(orders || [])
-      } catch (err) {
-        console.error(err)
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchData()
-  }, [])
+  const recentOrders = data?.recentOrders || []
+  const loading = isLoading
 
   return (
     <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-700">
@@ -83,7 +51,9 @@ export default function AdminDashboard() {
             <span className="text-[10px] font-semibold text-[#B37943]">System Active</span>
           </div>
         </div>
-      </header>      {/* KPI Cards */}
+      </header>
+
+      {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         <div className="bg-white rounded-2xl sm:rounded-[1.5rem] border border-[#E5C492] p-3.5 sm:p-6 shadow-xl shadow-[#4A3525]/5 relative overflow-hidden group">
           <div className="absolute -top-10 -right-10 w-24 h-24 bg-[#B37943]/5 rounded-full group-hover:scale-110 transition-transform duration-500" />
@@ -96,7 +66,7 @@ export default function AdminDashboard() {
           <p className="text-[10px] font-bold text-[#B37943] uppercase tracking-wider mb-1">Total Sales</p>
           <p className="text-2xl font-serif text-[#4A3525]">₹{kpis.totalSales.toLocaleString('en-IN')}</p>
         </div>
- 
+
         <div className="bg-white rounded-2xl sm:rounded-[1.5rem] border border-[#E5C492] p-3.5 sm:p-6 shadow-xl shadow-[#4A3525]/5 relative overflow-hidden group">
           <div className="absolute -top-10 -right-10 w-24 h-24 bg-[#B37943]/5 rounded-full group-hover:scale-110 transition-transform duration-500" />
           <div className="flex items-center justify-between mb-3.5 sm:mb-6">
@@ -108,7 +78,7 @@ export default function AdminDashboard() {
           <p className="text-[10px] font-bold text-[#B37943] uppercase tracking-wider mb-1">Pending Orders</p>
           <p className="text-2xl font-serif text-[#4A3525]">{kpis.pendingOrders}</p>
         </div>
- 
+
         <div className="bg-white rounded-2xl sm:rounded-[1.5rem] border border-[#E5C492] p-3.5 sm:p-6 shadow-xl shadow-[#4A3525]/5 relative overflow-hidden group">
           <div className="absolute -top-10 -right-10 w-24 h-24 bg-[#4A3525]/5 rounded-full group-hover:scale-110 transition-transform duration-500" />
           <div className="flex items-center justify-between mb-3.5 sm:mb-6">
@@ -134,7 +104,7 @@ export default function AdminDashboard() {
               All Orders <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
-          
+
           <div className="px-3 pb-3">
             {loading ? (
               <div className="p-8 flex flex-col items-center justify-center gap-3 text-[#B37943]">
@@ -148,32 +118,23 @@ export default function AdminDashboard() {
               </div>
             ) : (
               <div className="space-y-1.5">
-                {recentOrders.map((order) => (
-                  <div key={order.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white hover:bg-[#FAF9F6]/30 rounded-xl border border-transparent hover:border-[#E5C492] transition-all duration-300 group">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 shrink-0 bg-[#FAF9F6] rounded-lg flex items-center justify-center text-[#4A3525] shadow-sm border border-[#E5C492]">
-                        <User className="w-4 h-4 opacity-60" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-serif text-[#4A3525] group-hover:text-[#B37943] transition-colors truncate">{order.customer_name}</p>
-                        <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-[#B37943] font-medium">
-                          <span>{order.order_number}</span>
-                          <span className="hidden sm:inline">•</span>
-                          <span className="flex items-center gap-1">
-                            <Calendar className="w-2.5 h-2.5" />
-                            {new Date(order.created_at).toLocaleDateString()}
-                          </span>
-                        </div>
-                      </div>
+                {recentOrders.map((order: any) => (
+                  <div key={order.id} className="p-4 bg-[#FAF9F6]/50 rounded-xl border border-[#FAF3E8] hover:border-[#E5C492] transition-colors flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-bold text-[#4A3525]">{order.order_number}</p>
+                      <p className="text-[10px] text-[#B37943]">{order.customer_name} • {order.city}</p>
                     </div>
-                    <div className="text-left sm:text-right flex sm:block items-center justify-between">
-                      <p className="text-base font-serif text-[#4A3525] sm:mb-0.5">₹{order.total}</p>
-                      <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${
-                        order.status === 'Paid' ? 'bg-green-50 text-green-700 border-green-100' :
-                        order.status === 'Pending' ? 'bg-amber-50 text-amber-700 border-amber-100' :
-                        order.status === 'Shipped' ? 'bg-blue-50 text-blue-700 border-blue-100' :
-                        'bg-[#FAF9F6] text-[#B37943] border-[#E5C492]'
-                      }`}>{order.status}</span>
+                    <div className="text-right">
+                      <p className="text-xs font-bold text-[#4A3525]">₹{order.total}</p>
+                      <span className={`inline-block text-[8px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${
+                        order.status === 'Paid' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                        order.status === 'Shipped' ? 'bg-blue-50 text-blue-600 border-blue-100' :
+                        order.status === 'Delivered' ? 'bg-teal-50 text-teal-600 border-teal-100' :
+                        order.status === 'Cancelled' ? 'bg-rose-50 text-rose-600 border-rose-100' :
+                        'bg-[#FAF3E8] text-[#8B7355] border-[#E5C492]'
+                      }`}>
+                        {order.status}
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -182,62 +143,26 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Quick Actions & System Info */}
+        {/* Success Metrics */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="bg-[#4A3525] rounded-2xl sm:rounded-[1.5rem] p-4 sm:p-6 text-white relative overflow-hidden shadow-2xl shadow-[#4A3525]/20">
-            <div className="absolute top-0 right-0 p-6 opacity-10">
-              <Package className="w-24 h-24 rotate-12" />
+          <div className="bg-white rounded-2xl sm:rounded-[1.5rem] border border-[#E5C492] p-6 shadow-xl shadow-[#4A3525]/5">
+            <h2 className="text-xl font-serif text-[#4A3525] mb-0.5">Delivery Performance</h2>
+            <p className="text-[10px] text-[#B37943] font-bold tracking-wide uppercase mb-6">Fulfillment Success Rate</p>
+            <div className="flex items-end justify-between mb-4">
+              <span className="text-5xl font-serif text-[#4A3525]">{kpis.completionRate}%</span>
+              <span className="text-[10px] font-bold text-[#B37943] uppercase tracking-wider bg-emerald-50 text-emerald-600 px-2.5 py-1 rounded-full border border-emerald-100">Optimal</span>
             </div>
-            <div className="relative z-10">
-              <h3 className="text-xl font-serif mb-5">Operations</h3>
-              <div className="space-y-2.5">
-                <Link href="/products" className="flex items-center justify-between p-3.5 bg-white/10 hover:bg-white/15 rounded-xl border border-white/10 transition-all group">
-                  <div className="flex items-center gap-3">
-                    <Package className="w-4 h-4 opacity-60" />
-                    <span className="text-xs font-medium">Inventory</span>
-                  </div>
-                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-                </Link>
-                <Link href="/packing" className="flex items-center justify-between p-3.5 bg-white/10 hover:bg-white/15 rounded-xl border border-white/10 transition-all group">
-                  <div className="flex items-center gap-3">
-                    <Boxes className="w-4 h-4 opacity-60" />
-                    <span className="text-xs font-medium">Fulfillment</span>
-                  </div>
-                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-                </Link>
-                <Link href="/analytics" className="flex items-center justify-between p-3.5 bg-white/10 hover:bg-white/15 rounded-xl border border-white/10 transition-all group">
-                  <div className="flex items-center gap-3">
-                    <BarChart3 className="w-4 h-4 opacity-60" />
-                    <span className="text-xs font-medium">Analytics</span>
-                  </div>
-                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-                </Link>
-              </div>
+            <div className="w-full bg-[#FAF9F6] h-2.5 rounded-full overflow-hidden border border-[#E5C492]/30">
+              <div className="bg-[#B37943] h-full rounded-full transition-all duration-1000" style={{ width: `${kpis.completionRate}%` }} />
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl sm:rounded-[1.5rem] p-4 sm:p-6 border border-[#E5C492] shadow-xl shadow-[#4A3525]/5">
-            <h3 className="text-sm font-serif text-[#4A3525] mb-5">Fulfillment Success</h3>
-            <div className="space-y-5">
-              <div>
-                <div className="flex justify-between items-end mb-1.5">
-                  <span className="text-[9px] font-bold text-[#B37943] uppercase tracking-widest">Order Completion</span>
-                  <span className="text-xs font-serif text-[#4A3525]">{kpis.completionRate}%</span>
-                </div>
-                <div className="h-2 bg-[#FAF9F6] rounded-full overflow-hidden border border-[#E5C492]">
-                  <div className="h-full bg-[#B37943] rounded-full" style={{ width: `${kpis.completionRate}%` }} />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3.5">
-                <div className="p-3 bg-[#FAF9F6] rounded-xl border border-[#E5C492]">
-                  <p className="text-[9px] font-bold text-[#B37943] uppercase tracking-widest mb-0.5">Avg. Time</p>
-                  <p className="text-base font-serif text-[#4A3525]">1.2 Days</p>
-                </div>
-                <div className="p-3 bg-[#FAF9F6] rounded-xl border border-[#E5C492]">
-                  <p className="text-[9px] font-bold text-[#B37943] uppercase tracking-widest mb-0.5">Returns</p>
-                  <p className="text-base font-serif text-[#4A3525]">{kpis.returnRate}%</p>
-                </div>
-              </div>
+          <div className="bg-white rounded-2xl sm:rounded-[1.5rem] border border-[#E5C492] p-6 shadow-xl shadow-[#4A3525]/5">
+            <h2 className="text-xl font-serif text-[#4A3525] mb-0.5">Return Rate</h2>
+            <p className="text-[10px] text-[#B37943] font-bold tracking-wide uppercase mb-6">Percentage of Returns / RTOs</p>
+            <div className="flex items-end justify-between">
+              <span className="text-5xl font-serif text-[#4A3525]">{kpis.returnRate}%</span>
+              <span className="text-[10px] font-bold text-[#B37943] uppercase tracking-wider bg-[#FAF9F6] px-2.5 py-1 rounded-full border border-[#E5C492]">Industry Std: &lt;1.5%</span>
             </div>
           </div>
         </div>
@@ -245,49 +170,3 @@ export default function AdminDashboard() {
     </div>
   )
 }
-
-// Dummy Icons for missing ones
-function Boxes(props: any) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="m7.5 4.27 9 5.15" />
-      <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
-      <path d="m3.3 7 8.7 5 8.7-5" />
-      <path d="M12 22V12" />
-    </svg>
-  )
-}
-
-function BarChart3(props: any) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M3 3v18h18" />
-      <path d="M18 17V9" />
-      <path d="M13 17V5" />
-      <path d="M8 17v-3" />
-    </svg>
-  )
-}
-

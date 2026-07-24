@@ -7,6 +7,8 @@ import { Suspense } from "react";
 import SchemaOrg from "@/components/SchemaOrg";
 import { buildBreadcrumbSchema } from "@/lib/seo";
 
+export const revalidate = 300 // Revalidate every 5 minutes
+
 export const metadata: Metadata = {
   title:
     "Shop Herbal Hair Care Products — Natural Hair Oils, Shampoos & More",

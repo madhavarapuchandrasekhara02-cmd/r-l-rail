@@ -2,7 +2,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { Plus, Minus, Pencil, Trash2, X, Upload, LayoutGrid, List, Search, Filter, ChevronRight, ChevronLeft, Package, Image as ImageIcon, ExternalLink } from 'lucide-react'
 import { toast } from 'sonner'
-import { supabase } from '@/lib/supabase'
 import { CATEGORY_LIST, CATEGORY_CONFIG, RitualCategorySlug } from '@/constants/categories'
 import { getCloudinaryFolder, getThumbnailImage, getProductImage } from '@/lib/cloudinary'
 import { trpc } from '@/providers/trpc'

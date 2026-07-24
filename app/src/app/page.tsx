@@ -10,6 +10,8 @@ import Home from "@/views/Home";
 import SchemaOrg from "@/components/SchemaOrg";
 import { buildFAQSchema, buildSpeakableSchema, buildBreadcrumbSchema, BRAND } from "@/lib/seo";
 
+export const revalidate = 300 // Revalidate every 5 minutes
+
 // ─── Page Metadata ────────────────────────────────────────────────────────────
 
 export const metadata: Metadata = {

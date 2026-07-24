@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
-import { supabaseAdmin } from '../../../../../api/lib/supabase-admin'
+import { db } from '../../../../../api/lib/db'
 import { env } from '../../../../lib/env'
 
 export async function POST(req: NextRequest) {
@@ -30,41 +30,41 @@ export async function POST(req: NextRequest) {
     console.log(`[Delhivery Webhook] Waybill: ${waybill} is now ${currentStatus}`)
 
     // 1. First find the order ID associated with this waybill
-    const { data: shipmentRecords, error: fetchErr } = await supabaseAdmin
-      .from('shipments')
-      .select('order_id')
-      .eq('waybill', waybill)
+    const shipmentResult = await db.query(
+      'SELECT order_id FROM shipments WHERE waybill = $1',
+      [waybill]
+    )
       
-    if (fetchErr || !shipmentRecords || shipmentRecords.length === 0) {
+    if (shipmentResult.rows.length === 0) {
       console.error(`[Delhivery Webhook] Waybill ${waybill} not found in database.`)
       return new NextResponse('Waybill not found', { status: 404 })
     }
 
-    const orderId = shipmentRecords[0].order_id
+    const orderId = shipmentResult.rows[0].order_id
 
     // Check if the order is already in a terminal state (Delivered, Cancelled, Returned, RTO)
-    const { data: orderData, error: orderFetchErr } = await supabaseAdmin
-      .from('orders')
-      .select('status')
-      .eq('id', orderId)
-      .single()
+    const orderResult = await db.query(
+      'SELECT status FROM orders WHERE id = $1',
+      [orderId]
+    )
 
-    if (orderFetchErr) {
-      console.error(`[Delhivery Webhook] Failed to fetch order status for ID ${orderId}:`, orderFetchErr)
-    } else if (orderData && ['delivered', 'cancelled', 'returned', 'rto'].includes(orderData.status?.toLowerCase())) {
+    if (orderResult.rows.length === 0) {
+      console.error(`[Delhivery Webhook] Order not found for ID ${orderId}`)
+      return new NextResponse('Order not found', { status: 404 })
+    }
+    
+    const orderData = orderResult.rows[0]
+
+    if (orderData && ['delivered', 'cancelled', 'returned', 'rto'].includes(orderData.status?.toLowerCase())) {
       console.log(`[Delhivery Webhook] Order ${orderId} is already in terminal status '${orderData.status}'. Ignoring update to prevent out-of-order status override.`)
       return new NextResponse('Webhook ignored: Order is in terminal state', { status: 200 })
     }
 
     // 2. Update the shipment record with the latest status
-    const { error: shipmentUpdateErr } = await supabaseAdmin
-      .from('shipments')
-      .update({ tracking_status: currentStatus })
-      .eq('waybill', waybill)
-
-    if (shipmentUpdateErr) {
-      console.error(`[Delhivery Webhook] Failed to update shipment record:`, shipmentUpdateErr)
-    }
+    await db.query(
+      'UPDATE shipments SET tracking_status = $1 WHERE waybill = $2',
+      [currentStatus, waybill]
+    )
 
     // 3. Map Delhivery status to allowed order status (Pending, Processing, Paid, Packed, Shipped, Delivered, Cancelled, Returned, RTO)
     const normalizedStatus = currentStatus.toLowerCase()
@@ -81,15 +81,10 @@ export async function POST(req: NextRequest) {
     }
 
     if (newOrderStatus) {
-      const { error: orderUpdateErr } = await supabaseAdmin
-        .from('orders')
-        .update({ status: newOrderStatus, updated_at: new Date().toISOString() })
-        .eq('id', orderId)
-        
-      if (orderUpdateErr) {
-        console.error(`[Delhivery Webhook] Failed to update order status:`, orderUpdateErr)
-        return new NextResponse('Database error', { status: 500 })
-      }
+      await db.query(
+        'UPDATE orders SET status = $1, updated_at = $2 WHERE id = $3',
+        [newOrderStatus, new Date().toISOString(), orderId]
+      )
       
       console.log(`[Delhivery Webhook] SUCCESS! Order ${orderId} marked as ${newOrderStatus}.`)
     }

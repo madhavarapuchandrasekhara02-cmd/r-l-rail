@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { createRouter, publicQuery, publicMutation } from '../trpc-middleware'
-import { supabaseAdmin } from '../lib/supabase-admin'
+import { db } from '../lib/db'
 import { env } from '../../src/lib/env'
 
 export const orderRouter = createRouter({
@@ -29,9 +29,7 @@ export const orderRouter = createRouter({
 
         const isPhone = phone10.length === 10
 
-        let queryBuilder = supabaseAdmin
-          .from('orders')
-          .select('id, order_number, status, created_at, total, delivery_charge, order_items(id, product_name, quantity, variant_label, price), shipments(courier_partner, tracking_status, tracking_url, waybill)')
+        let ordersResult;
 
         if (isPhone) {
           const phoneFormats = [
@@ -40,7 +38,10 @@ export const orderRouter = createRouter({
             `91${phone10}`,
             `0${phone10}`
           ]
-          queryBuilder = queryBuilder.in('customer_phone', phoneFormats)
+          ordersResult = await db.query(
+            'SELECT id, order_number, status, created_at, total, delivery_charge FROM orders WHERE customer_phone = ANY($1) ORDER BY created_at DESC',
+            [phoneFormats]
+          )
         } else {
           // Normalize Order ID: handles "ral1", "ral-1", "RaL 1", "RAL_1" -> "RAL-1"
           let normalizedOrderNumber = cleanQuery;
@@ -50,13 +51,61 @@ export const orderRouter = createRouter({
           } else {
             normalizedOrderNumber = cleanQuery.toUpperCase();
           }
-          queryBuilder = queryBuilder.eq('order_number', normalizedOrderNumber)
+          ordersResult = await db.query(
+            'SELECT id, order_number, status, created_at, total, delivery_charge FROM orders WHERE order_number = $1 ORDER BY created_at DESC',
+            [normalizedOrderNumber]
+          )
         }
 
-        const { data, error } = await queryBuilder.order('created_at', { ascending: false })
+        if (ordersResult.rows.length === 0) {
+          return { orders: [], success: true }
+        }
 
-        if (error) throw error
-        return { orders: data || [], success: true }
+        const orderIds = ordersResult.rows.map(o => o.id)
+
+        // Fetch all items for all matching orders in ONE query!
+        const itemsResult = await db.query(
+          'SELECT id, order_id, product_name, quantity, variant_label, price FROM order_items WHERE order_id = ANY($1)',
+          [orderIds]
+        )
+
+        // Fetch all shipments for all matching orders in ONE query!
+        const shipmentsResult = await db.query(
+          'SELECT order_id, courier_partner, tracking_status, tracking_url, waybill FROM shipments WHERE order_id = ANY($1)',
+          [orderIds]
+        )
+
+        // Map items and shipments to their respective orders in memory
+        const itemsByOrderId = itemsResult.rows.reduce((acc: any, item) => {
+          if (!acc[item.order_id]) acc[item.order_id] = []
+          acc[item.order_id].push({
+            id: item.id,
+            product_name: item.product_name,
+            quantity: item.quantity,
+            variant_label: item.variant_label,
+            price: item.price
+          })
+          return acc
+        }, {})
+
+        const shipmentsByOrderId = shipmentsResult.rows.reduce((acc: any, shipment) => {
+          if (!acc[shipment.order_id]) acc[shipment.order_id] = []
+          acc[shipment.order_id].push({
+            courier_partner: shipment.courier_partner,
+            tracking_status: shipment.tracking_status,
+            tracking_url: shipment.tracking_url,
+            waybill: shipment.waybill
+          })
+          return acc
+        }, {})
+
+        const orders = ordersResult.rows.map(order => ({
+          ...order,
+          order_items: itemsByOrderId[order.id] || [],
+          shipments: shipmentsByOrderId[order.id] || []
+        }))
+
+        return { orders, success: true }
       } catch (err: any) {
         return { error: err.message || 'Tracking failed', success: false }
       }
@@ -88,12 +137,12 @@ export const orderRouter = createRouter({
         
         // 1. Resolve master product prices and details from database (Prevents price injection!)
         const variantIds = input.items.map(i => i.variantId)
-        const { data: dbVariants, error: varErr } = await supabaseAdmin
-          .from('product_variants')
-          .select('*, products(*)')
-          .in('id', variantIds)
+        const { rows: dbVariants } = await db.query(
+          'SELECT pv.*, p.name as product_name, p.gst_rate, p.hsn_code FROM product_variants pv JOIN products p ON pv.product_id = p.id WHERE pv.id = ANY($1)',
+          [variantIds]
+        )
 
-        if (varErr || !dbVariants || dbVariants.length !== input.items.length) {
+        if (!dbVariants || dbVariants.length !== input.items.length) {
           throw new Error('Some product variants were not found in master catalog')
         }
 
@@ -116,8 +165,8 @@ export const orderRouter = createRouter({
           // Bypassed stock checks: allowing unlimited orders as per business print-on-demand model
 
           const itemGross = dbVar.price * item.quantity
-          const gstRate = dbVar.products.gst_rate ?? 18
-          const hsnCode = dbVar.products.hsn_code ?? '33051090'
+          const gstRate = dbVar.gst_rate ?? 18
+          const hsnCode = dbVar.hsn_code ?? '33051090'
 
           // Safe Reverse Tax Calculations
           const taxableValue = Math.round(itemGross / (1 + gstRate / 100))
@@ -144,7 +193,7 @@ export const orderRouter = createRouter({
           return {
             product_id: dbVar.product_id,
             variant_id: dbVar.id,
-            product_name: dbVar.products.name,
+            product_name: dbVar.product_name,
             variant_label: dbVar.size_label,
             quantity: item.quantity,
             price: dbVar.price,
@@ -175,31 +224,32 @@ export const orderRouter = createRouter({
 
         // Invoice number is auto-generated by database trigger on insert
 
-        // 5. Create Order transactionally in Supabase using the stored procedure RPC
-        const { data: rpcRes, error: rpcErr } = await supabaseAdmin
-          .rpc('create_order_with_items', {
-            p_order: {
-              customer_name: input.customerName,
-              customer_phone: normalizedPhone,
-              customer_email: input.customerEmail,
-              address: input.address,
-              city: input.city,
-              state: input.state,
-              pincode: input.pincode,
-              status: 'Pending',
-              payment_method: 'razorpay',
-              total: orderTotal,
-              delivery_charge: deliveryCharge,
-              total_taxable: orderTaxable,
-              total_cgst: orderCGST,
-              total_sgst: orderSGST,
-              total_igst: orderIGST,
-              total_gst: orderGST,
-            },
-            p_items: parsedOrderItems
-          })
+        // 5. Create Order transactionally in database using the stored procedure
+        const p_order = {
+          customer_name: input.customerName,
+          customer_phone: normalizedPhone,
+          customer_email: input.customerEmail,
+          address: input.address,
+          city: input.city,
+          state: input.state,
+          pincode: input.pincode,
+          status: 'Pending',
+          payment_method: 'razorpay',
+          total: orderTotal,
+          delivery_charge: deliveryCharge,
+          total_taxable: orderTaxable,
+          total_cgst: orderCGST,
+          total_sgst: orderSGST,
+          total_igst: orderIGST,
+          total_gst: orderGST,
+        }
 
-        if (rpcErr) throw rpcErr
+        const result = await db.query(
+          'SELECT create_order_with_items($1::jsonb, $2::jsonb)',
+          [JSON.stringify(p_order), JSON.stringify(parsedOrderItems)]
+        )
+
+        const rpcRes = result.rows[0].create_order_with_items
         if (!rpcRes.success) {
           throw new Error(rpcRes.error || 'Failed to write order transaction to database')
         }

@@ -29,6 +29,9 @@ CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items (order_id);
 CREATE INDEX IF NOT EXISTS idx_shipments_waybill ON shipments (waybill);
 CREATE INDEX IF NOT EXISTS idx_shipments_order_id ON shipments (order_id);
 
+-- Optimizes Razorpay webhook query lookups.
+CREATE INDEX IF NOT EXISTS idx_orders_payment_method ON orders (payment_method);
+
 -- =====================================================================
 -- 3. CREATE ATOMIC CASCADE DELETION FUNCTION
 -- =====================================================================

@@ -3,11 +3,10 @@ import { z } from "zod";
 import "dotenv/config";
 
 const envSchema = z.object({
-  // Supabase
-  NEXT_PUBLIC_SUPABASE_URL: z.string().url("Must be a valid URL"),
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1, "Anon key is required"),
-  SUPABASE_URL: z.string().url("Must be a valid URL").optional(),
-  SUPABASE_SERVICE_KEY: z.string().min(1, "Service key is required"),
+
+  // Database Connection
+  DATABASE_URL: z.string().min(1, "Database URL is required"),
+  JWT_SECRET: z.string().min(1, "JWT Secret is required"),
 
   // Delhivery One
   DELHIVERY_API_TOKEN: z.string().min(1, "Delhivery Token is required"),

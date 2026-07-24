@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 import crypto from 'crypto'
-import { supabaseAdmin } from '../../../../../api/lib/supabase-admin'
+import { db } from '../../../../../api/lib/db'
 
 import { env } from '../../../../lib/env'
 
@@ -33,39 +33,42 @@ export async function POST(req: Request) {
 
       if (razorpayOrderId) {
         // Find order associated with this Razorpay Order ID using exact indexed match
-        const { data: order, error: findErr } = await supabaseAdmin
-          .from('orders')
-          .select('id, status, total')
-          .eq('payment_method', `razorpay_order:${razorpayOrderId}`)
-          .single()
+        const findResult = await db.query(
+          'SELECT id, status, total FROM orders WHERE payment_method = $1',
+          [`razorpay_order:${razorpayOrderId}`]
+        )
 
-        if (findErr || !order) {
+        if (findResult.rows.length === 0) {
           console.warn(`[Razorpay Webhook] Order with Razorpay Order ID ${razorpayOrderId} not found`)
-        } else if (order.status === 'Paid' || order.status === 'Shipped' || order.status === 'Delivered') {
-          console.log(`[Razorpay Webhook] Order ${order.id} is already processed. Ignoring duplicate webhook to save resources.`)
-          return NextResponse.json({ success: true, message: 'Already processed' })
         } else {
-          // Verify payment amount matches database total
-          if (payment && typeof payment.amount === 'number') {
-            const expectedAmountPaise = Math.round(order.total * 100)
-            if (payment.amount !== expectedAmountPaise) {
-              console.warn(`[Razorpay Webhook] Amount mismatch! Captured: ${payment.amount}, Expected: ${expectedAmountPaise}`)
-              return NextResponse.json({ error: 'Payment amount mismatch' }, { status: 400 })
+          const order = findResult.rows[0]
+          
+          if (order.status === 'Paid' || order.status === 'Shipped' || order.status === 'Delivered') {
+            console.log(`[Razorpay Webhook] Order ${order.id} is already processed. Ignoring duplicate webhook to save resources.`)
+            return NextResponse.json({ success: true, message: 'Already processed' })
+          } else {
+            // Verify payment amount matches database total
+            if (payment && typeof payment.amount === 'number') {
+              const expectedAmountPaise = Math.round(order.total * 100)
+              if (payment.amount !== expectedAmountPaise) {
+                console.warn(`[Razorpay Webhook] Amount mismatch! Captured: ${payment.amount}, Expected: ${expectedAmountPaise}`)
+                return NextResponse.json({ error: 'Payment amount mismatch' }, { status: 400 })
+              }
             }
+
+            // Transition order status to Paid securely (Atomic status lock check)
+            const updateResult = await db.query(
+              "UPDATE orders SET status = $1, payment_method = $2, updated_at = $3 WHERE id = $4 AND status = 'Pending'",
+              ['Paid', `razorpay:${payment.id}`, new Date().toISOString(), order.id]
+            )
+
+            if (updateResult.rowCount === 0) {
+              console.log(`[Razorpay Webhook] Order ${order.id} was already marked as Paid. Skipping duplicate webhook side-effects.`)
+              return NextResponse.json({ success: true, message: 'Already processed' })
+            }
+
+            console.log(`[Razorpay Webhook] Successfully marked Order ${order.id} as Paid via Webhook`)
           }
-
-          // Transition order status to Paid securely
-          const { error: updateErr } = await supabaseAdmin
-            .from('orders')
-            .update({
-              status: 'Paid',
-              payment_method: `razorpay:${payment.id}`,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', order.id)
-
-          if (updateErr) throw updateErr
-          console.log(`[Razorpay Webhook] Successfully marked Order ${order.id} as Paid via Webhook`)
         }
       }
     }

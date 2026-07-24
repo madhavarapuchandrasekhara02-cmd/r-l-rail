@@ -61,14 +61,14 @@ export function middleware(request: NextRequest) {
     // Styles: self + inline (required by Next.js) + Google Fonts CSS
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
 
-    // Images: self + data URIs + Cloudinary + Supabase Storage + Razorpay branding + YouTube thumbnails + Transparent Textures
-    "img-src 'self' data: https://res.cloudinary.com https://*.supabase.co https://cdn.razorpay.com https://www.googletagmanager.com https://img.youtube.com https://*.ytimg.com https://www.transparenttextures.com",
+    // Images: self + data URIs + Cloudinary + Razorpay branding + YouTube thumbnails + Transparent Textures
+    "img-src 'self' data: https://res.cloudinary.com https://cdn.razorpay.com https://www.googletagmanager.com https://img.youtube.com https://*.ytimg.com https://www.transparenttextures.com",
 
     // Fonts: self + data URIs + Google Fonts static files + Perplexity font
     "font-src 'self' data: https://fonts.gstatic.com https://frontend-cdn.perplexity.ai",
 
-    // XHR/Fetch: self + Supabase API + Razorpay API + Delhivery API + Google Analytics + Postal Pincode API
-    "connect-src 'self' https://*.supabase.co https://api.razorpay.com https://lumberjack.razorpay.com https://checkout.razorpay.com https://staging-express.delhivery.com https://track.delhivery.com https://www.google-analytics.com https://www.googletagmanager.com https://api.postalpincode.in",
+    // XHR/Fetch: self + Razorpay API + Delhivery API + Google Analytics + Postal Pincode API
+    "connect-src 'self' https://api.razorpay.com https://lumberjack.razorpay.com https://checkout.razorpay.com https://staging-express.delhivery.com https://track.delhivery.com https://www.google-analytics.com https://www.googletagmanager.com https://api.postalpincode.in",
 
     // Frames: Razorpay checkout modal + YouTube embedded videos
     "frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com https://www.youtube.com",

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { PDFDocument } from 'pdf-lib'
 
 import { env } from '../../../../lib/env'
-import { supabaseAdmin } from '../../../../../api/lib/supabase-admin'
+import { verifyToken } from '../../../../../api/lib/auth'
 
 const DELHIVERY_API_TOKEN = env.DELHIVERY_API_TOKEN
 const DELHIVERY_BASE = env.DELHIVERY_BASE_URL
@@ -16,8 +16,8 @@ function extractToken(req: NextRequest): string {
       return [parts[0], parts.slice(1).join("=")];
     })
   );
-  if (cookies["sb-access-token"]) {
-    return decodeURIComponent(cookies["sb-access-token"]);
+  if (cookies["admin-token"]) {
+    return decodeURIComponent(cookies["admin-token"]);
   }
 
   // 2. Try Authorization header
@@ -42,11 +42,11 @@ export async function GET(req: NextRequest) {
       return new NextResponse('Unauthorized: Missing session token', { status: 401 })
     }
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabaseAdmin.auth.getUser(token);
-    if (authError || !user) {
+    let user: { email: string } | null = null
+    try {
+      const payload = verifyToken(token)
+      user = { email: payload.email }
+    } catch {
       return new NextResponse('Unauthorized: Session is invalid or expired', { status: 401 })
     }
 

@@ -1,10 +1,3 @@
-import { createClient } from '@supabase/supabase-js'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
-
 export type Product = {
   id: string
   name: string
@@ -13,10 +6,13 @@ export type Product = {
   ingredients: string | null
   how_to_use: string | null
   rating: number | null
-  category: string
-  images: string[] | null
+  category: 'hair-rituals' | 'face-rituals' | 'wellness-rituals' | 'baby-rituals'
+  images: string[]
+  gst_rate: number
+  hsn_code: string
   display_order: number
   created_at: string
+  updated_at: string | null
 }
 
 export type ProductVariant = {
@@ -32,6 +28,7 @@ export type ProductVariant = {
 export type Order = {
   id: string
   order_number: string
+  invoice_number: string | null
   customer_name: string
   customer_phone: string
   customer_email: string | null
@@ -40,11 +37,17 @@ export type Order = {
   state: string
   pincode: string
   landmark: string | null
-  status: 'Pending' | 'Paid' | 'Packed' | 'Shipped' | 'Delivered' | 'Cancelled'
+  status: 'Pending' | 'Paid' | 'Packed' | 'Shipped' | 'Delivered' | 'Cancelled' | 'Returned' | 'RTO'
   total: number
   delivery_charge: number
   payment_method: string
+  total_taxable: number
+  total_cgst: number
+  total_sgst: number
+  total_igst: number
+  total_gst: number
   created_at: string
+  updated_at: string | null
 }
 
 export type OrderItem = {
@@ -57,6 +60,12 @@ export type OrderItem = {
   quantity: number
   price: number
   status: 'Pending' | 'Shipped'
+  hsn_code: string
+  gst_rate: number
+  taxable_value: number
+  cgst_amount: number
+  sgst_amount: number
+  igst_amount: number
   created_at: string
 }
 
@@ -68,5 +77,27 @@ export type Shipment = {
   tracking_url: string | null
   label_url: string | null
   shipped_at: string | null
+  created_at: string
+  courier_partner: string | null
+  tracking_id: string | null
+  pickup_status: string | null
+  last_tracking_update: string | null
+  pickup_request_id: string | null
+  pickup_scheduled_time: string | null
+}
+
+export type ShipmentBatch = {
+  id: string
+  order_ids: string[]
+  created_at: string
+}
+
+export type ShipmentTrackingEvent = {
+  id: string
+  shipment_id: string | null
+  status: string
+  location: string | null
+  description: string | null
+  event_time: string
   created_at: string
 }

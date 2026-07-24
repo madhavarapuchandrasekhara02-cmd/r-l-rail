@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 
 const MotionImage = motion(Image)
 import { ChevronDown, ChevronUp, Star, Plus, Minus, ShoppingCart } from 'lucide-react'
-import { type Product, type ProductVariant } from '@/lib/supabase'
+import { type Product, type ProductVariant } from '@/lib/types'
 import { useCart } from '@/lib/store'
 import PageWrapper from '@/components/PageWrapper'
 import { getThumbnailImage, getGalleryImage } from '@/lib/cloudinary'

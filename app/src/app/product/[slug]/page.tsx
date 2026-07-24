@@ -1,14 +1,15 @@
 /**
  * Product Detail Page — Dynamic Server Component
  * Generates per-product metadata, Product schema, BreadcrumbList,
- * FAQPage schema, and Speakable schema from Supabase data.
+ * FAQPage schema, and Speakable schema from Database data.
  *
  * ProductDetail UI view is "use client" — unchanged visually.
  */
+import { cache } from "react";
 import type { Metadata } from "next";
-import { createClient } from "@supabase/supabase-js";
 import ProductDetail from "@/views/ProductDetail";
 import SchemaOrg from "@/components/SchemaOrg";
+import { db } from "../../../../api/lib/db";
 import {
   buildProductSchema,
   buildBreadcrumbSchema,
@@ -16,13 +17,25 @@ import {
   BRAND,
 } from "@/lib/seo";
 
-// ─── Supabase Server Client ───────────────────────────────────────────────────
+export const revalidate = 600 // Revalidate every 10 minutes
 
-function getSupabaseServer() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
-  return createClient(url, key);
-}
+// Cached function to fetch product and variants in a single request lifecycle
+const getProduct = cache(async (slug: string) => {
+  const { rows: products } = await db.query(
+    "SELECT * FROM products WHERE slug = $1",
+    [slug]
+  );
+  const product = products[0] || null;
+
+  if (product) {
+    const { rows: variants } = await db.query(
+      "SELECT * FROM product_variants WHERE product_id = $1",
+      [product.id]
+    );
+    product.product_variants = variants;
+  }
+  return product;
+});
 
 // ─── Dynamic Metadata ────────────────────────────────────────────────────────
 
@@ -32,13 +45,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const supabase = getSupabaseServer();
-
-  const { data: product } = await supabase
-    .from("products")
-    .select(`*, product_variants(*)`)
-    .eq("slug", slug)
-    .single();
+  const product = await getProduct(slug);
 
   if (!product) {
     return {
@@ -48,6 +55,7 @@ export async function generateMetadata({
   }
 
   const variants = product.product_variants || [];
+
   const minPrice = variants.length
     ? Math.min(...variants.map((v: { price: number }) => v.price))
     : 0;
@@ -141,13 +149,7 @@ export default async function Page({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const supabase = getSupabaseServer();
-
-  const { data: product } = await supabase
-    .from("products")
-    .select(`*, product_variants(*)`)
-    .eq("slug", slug)
-    .single();
+  const product = await getProduct(slug);
 
   const breadcrumbSchema = buildBreadcrumbSchema([
     { name: "Home", path: "/" },

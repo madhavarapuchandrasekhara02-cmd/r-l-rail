@@ -1,7 +1,7 @@
 import { z } from 'zod'
-import { createRouter, adminMutation, adminQuery, publicQuery } from '../trpc-middleware'
-import { supabaseAdmin } from '../lib/supabase-admin'
-import { getPackageDetails, isFragile } from '../../src/lib/weight'
+import { createRouter, adminMutation, adminQuery } from '../trpc-middleware'
+import { db } from '../lib/db'
+import { getPackageDetails } from '../../src/lib/weight'
 
 import { env } from '../../src/lib/env'
 
@@ -63,18 +63,42 @@ export const dispatchRouter = createRouter({
       const orderMap: Record<string, any> = {}
 
       try {
-        // 1. Gather all order details
-        for (const orderId of input.orderIds) {
-          const { data: order, error: orderErr } = await supabaseAdmin
-            .from('orders')
-            .select('*, order_items(*)')
-            .eq('id', orderId)
-            .single()
+        // 1. Batch-fetch all order details, items, and existing shipments in 3 queries
+        const [ordersResult, itemsResult, existingShipmentsResult] = await Promise.all([
+          db.query('SELECT * FROM orders WHERE id = ANY($1)', [input.orderIds]),
+          db.query('SELECT * FROM order_items WHERE order_id = ANY($1)', [input.orderIds]),
+          db.query('SELECT order_id, id, waybill FROM shipments WHERE order_id = ANY($1)', [input.orderIds]),
+        ])
 
-          if (orderErr || !order) {
-            errors.push({ orderId, reason: orderErr?.message || 'Order not found' })
+        // Index items by order_id
+        const itemsByOrderId: Record<string, any[]> = {}
+        for (const item of itemsResult.rows) {
+          if (!itemsByOrderId[item.order_id]) itemsByOrderId[item.order_id] = []
+          itemsByOrderId[item.order_id].push(item)
+        }
+
+        // Index existing shipments by order_id
+        const shipmentByOrderId: Record<string, any> = {}
+        for (const s of existingShipmentsResult.rows) {
+          shipmentByOrderId[s.order_id] = s
+        }
+
+        // Build order lookup
+        const orderById: Record<string, any> = {}
+        for (const order of ordersResult.rows) {
+          orderById[order.id] = order
+        }
+
+        // 2. Process each order ID using in-memory data
+        for (const orderId of input.orderIds) {
+          const order = orderById[orderId]
+
+          if (!order) {
+            errors.push({ orderId, reason: 'Order not found' })
             continue
           }
+
+          order.order_items = itemsByOrderId[orderId] || []
 
           if (order.status === 'Shipped' || order.status === 'Delivered') {
             errors.push({ orderId, orderNumber: order.order_number, reason: `Order already ${order.status}` })
@@ -82,11 +106,7 @@ export const dispatchRouter = createRouter({
           }
 
           // Check if shipment already exists for this order
-          const { data: existingShipment } = await supabaseAdmin
-            .from('shipments')
-            .select('id, waybill')
-            .eq('order_id', orderId)
-            .maybeSingle()
+          const existingShipment = shipmentByOrderId[orderId]
 
           if (existingShipment?.waybill) {
             errors.push({ orderId, orderNumber: order.order_number, reason: `Already has waybill: ${existingShipment.waybill}` })
@@ -205,33 +225,36 @@ export const dispatchRouter = createRouter({
               })
 
               // Persist unserviceable state directly in the database
-              await supabaseAdmin
-                .from('shipments')
-                .delete()
-                .eq('order_id', correspondingOrder.id)
+              await db.query(
+                'DELETE FROM shipments WHERE order_id = $1',
+                [correspondingOrder.id]
+              )
               
-              await supabaseAdmin
-                .from('shipments')
-                .insert({
-                  order_id: correspondingOrder.id,
-                  waybill: 'UNSERVICEABLE',
-                  tracking_status: 'Pincode not serviceable',
-                  tracking_url: null,
-                  shipped_at: new Date().toISOString()
-                })
+              await db.query(
+                'INSERT INTO shipments (order_id, waybill, tracking_status, tracking_url, shipped_at) VALUES ($1, $2, $3, $4, $5)',
+                [
+                  correspondingOrder.id,
+                  'UNSERVICEABLE',
+                  'Pincode not serviceable',
+                  null,
+                  new Date().toISOString()
+                ]
+              )
             }
           }
 
           // Atomically write shipments and update order statuses in a single transaction
           if (dbShipments.length > 0) {
             console.log(`[Dispatch] Writing ${dbShipments.length} shipments and updating orders atomically...`)
-            const { data: rpcRes, error: rpcErr } = await supabaseAdmin.rpc(
-              'save_shipments_and_update_status',
-              { p_shipments: dbShipments }
+            
+            const rpcResult = await db.query(
+              'SELECT save_shipments_and_update_status($1::jsonb) as res',
+              [JSON.stringify(dbShipments)]
             )
+            const rpcRes = rpcResult.rows[0].res
 
-            if (rpcErr || !rpcRes || (rpcRes as any).success === false) {
-              const errMsg = rpcErr?.message || (rpcRes as any)?.error || 'Unknown transaction error'
+            if (!rpcRes || rpcRes.success === false) {
+              const errMsg = rpcRes?.error || 'Unknown transaction error'
               console.error('[Dispatch] save_shipments_and_update_status transactional error:', errMsg)
               
               // Move all successful packages back to errors array since they rolled back
@@ -246,7 +269,7 @@ export const dispatchRouter = createRouter({
               successfulPackages.length = 0
               successfulWaybills.length = 0
             } else {
-              console.log(`[Dispatch] Database transaction completed. Updated ${(rpcRes as any).updated_count} records.`)
+              console.log(`[Dispatch] Database transaction completed. Updated ${rpcRes.updated_count} records.`)
             }
           }
         } else if (delhiveryResponse?.rmk) {
@@ -274,15 +297,12 @@ export const dispatchRouter = createRouter({
     .input(z.object({ orderIds: z.array(z.string().uuid()).min(1).max(500) }))
     .mutation(async ({ input }) => {
       try {
-        const { data, error } = await supabaseAdmin
-          .from('orders')
-          .update({ status: 'Shipped', updated_at: new Date().toISOString() })
-          .in('id', input.orderIds)
-          .eq('status', 'Packed') // Only transition Packed orders to Shipped
-          .select('id, order_number')
+        const result = await db.query(
+          "UPDATE orders SET status = 'Shipped', updated_at = $1 WHERE id = ANY($2) AND status = 'Packed' RETURNING id, order_number",
+          [new Date().toISOString(), input.orderIds]
+        )
         
-        if (error) throw error
-        return { success: true, updatedCount: data?.length || 0, orders: data }
+        return { success: true, updatedCount: result.rows.length, orders: result.rows }
       } catch (err: any) {
         console.error('[Dispatch] dispatchOrders error:', err)
         return { success: false, error: err.message || 'Failed to dispatch orders' }
@@ -300,47 +320,40 @@ export const dispatchRouter = createRouter({
     )
     .mutation(async ({ input }) => {
       try {
-        const { data: order, error: orderErr } = await supabaseAdmin
-          .from('orders')
-          .select('order_number')
-          .eq('id', input.orderId)
-          .single()
+        const { rows: orders } = await db.query(
+          'SELECT order_number FROM orders WHERE id = $1',
+          [input.orderId]
+        )
+        const order = orders[0]
 
-        if (orderErr || !order) throw new Error('Order not found')
+        if (!order) throw new Error('Order not found')
 
         // 1. Delete any temporary unserviceable tagging shipments
-        await supabaseAdmin
-          .from('shipments')
-          .delete()
-          .eq('order_id', input.orderId)
-          .eq('waybill', 'UNSERVICEABLE')
+        await db.query(
+          "DELETE FROM shipments WHERE order_id = $1 AND waybill = 'UNSERVICEABLE'",
+          [input.orderId]
+        )
 
         const waybill = input.waybill?.trim() || `MANUAL-${order.order_number}`
 
         // 2. Insert manual courier shipment record (using correct courier_partner column)
-        const { error: shipErr } = await supabaseAdmin
-          .from('shipments')
-          .insert({
-            order_id: input.orderId,
+        await db.query(
+          'INSERT INTO shipments (order_id, waybill, tracking_status, tracking_url, courier_partner, shipped_at) VALUES ($1, $2, $3, $4, $5, $6)',
+          [
+            input.orderId,
             waybill,
-            tracking_status: 'Shipped',
-            tracking_url: input.trackingUrl || null,
-            courier_partner: input.courierPartner || 'Manual',
-            shipped_at: new Date().toISOString()
-          })
-
-        if (shipErr) throw shipErr
+            'Shipped',
+            input.trackingUrl || null,
+            input.courierPartner || 'Manual',
+            new Date().toISOString()
+          ]
+        )
 
         // 3. Update order status to Packed (Ready for dispatch status updates)
-        const { error: orderUpdateErr } = await supabaseAdmin
-          .from('orders')
-          .update({
-            status: 'Packed',
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', input.orderId)
-
-        if (orderUpdateErr) throw orderUpdateErr
+        await db.query(
+          'UPDATE orders SET status = $1, updated_at = $2 WHERE id = $3',
+          ['Packed', new Date().toISOString(), input.orderId]
+        )
 
         return { success: true, waybill }
       } catch (err: any) {
@@ -369,48 +382,44 @@ export const dispatchRouter = createRouter({
       const cutoffDate = new Date()
       cutoffDate.setDate(cutoffDate.getDate() - 6)
 
-      const { data: expiredShipments } = await supabaseAdmin
-        .from('shipments')
-        .select('order_id')
-        .or('waybill.ilike.MANUAL-%,courier_partner.eq.Manual')
-        .lt('shipped_at', cutoffDate.toISOString())
+      const { rows: expiredShipments } = await db.query(
+        "SELECT order_id FROM shipments WHERE (waybill LIKE 'MANUAL-%' OR courier_partner = 'Manual') AND shipped_at < $1",
+        [cutoffDate.toISOString()]
+      )
 
       if (expiredShipments && expiredShipments.length > 0) {
         const orderIdsToDeliver = expiredShipments.map(s => s.order_id)
-        await supabaseAdmin
-          .from('orders')
-          .update({ status: 'Delivered', updated_at: new Date().toISOString() })
-          .in('id', orderIdsToDeliver)
-          .in('status', ['Shipped', 'Packed'])
+        await db.query(
+          "UPDATE orders SET status = 'Delivered', updated_at = $1 WHERE id = ANY($2) AND status IN ('Shipped', 'Packed')",
+          [new Date().toISOString(), orderIdsToDeliver]
+        )
       }
     } catch (simulationErr) {
       console.error('[Dispatch] Auto-delivery simulation failed:', simulationErr)
     }
 
-    const { data, error } = await supabaseAdmin
-      .from('shipments')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(1000)
+    const { rows: shipments } = await db.query(
+      'SELECT * FROM shipments ORDER BY created_at DESC LIMIT 1000'
+    )
 
-    if (error) {
-      console.error('[Dispatch] getRecentShipments error:', error)
-      return []
-    }
-    return data || []
+    return shipments || []
   }),
 
   getWaybills: adminMutation
     .input(z.object({ orderIds: z.array(z.string().uuid()).max(100).optional() }))
     .mutation(async ({ input }) => {
-      let query = supabaseAdmin.from('shipments').select('waybill').not('waybill', 'is', null)
+      let queryStr = "SELECT waybill FROM shipments WHERE waybill IS NOT NULL"
+      const params: any[] = []
+
       if (input.orderIds && input.orderIds.length > 0) {
-        query = query.in('order_id', input.orderIds)
+        queryStr += " AND order_id = ANY($1)"
+        params.push(input.orderIds)
       } else {
-        query = query.order('created_at', { ascending: false }).limit(20)
+        queryStr += " ORDER BY created_at DESC LIMIT 20"
       }
-      const { data } = await query
-      return (data || []).map(s => s.waybill).filter(Boolean) as string[]
+
+      const { rows } = await db.query(queryStr, params)
+      return (rows || []).map(s => s.waybill).filter(Boolean) as string[]
     }),
 
   schedulePickup: adminMutation

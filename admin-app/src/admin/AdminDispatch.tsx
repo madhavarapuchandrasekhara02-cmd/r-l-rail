@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useState, useMemo } from 'react'
-import { supabase } from '@/lib/supabase'
 import { trpc } from '@/providers/trpc'
 import { getPackedWeight } from '@/lib/weight'
 import { generateAlternativeCourierPDF } from '@/lib/alternative_pdf'
@@ -70,28 +69,35 @@ export default function AdminDispatch() {
   const getWaybillsMutation = trpc.dispatch.getWaybills.useMutation()
   const deleteOrderMutation = trpc.order.delete.useMutation()
 
+  const { data: listData, refetch: refetchOrders, isFetching: isFetchingOrders } = trpc.order.list.useQuery({ limit: 10000 })
+  const { data: shipmentsData, refetch: refetchShipments, isFetching: isFetchingShipments } = trpc.dispatch.getRecentShipments.useQuery()
+
+  useEffect(() => {
+    if (listData?.orders) {
+      const sorted = [...listData.orders].sort(
+        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      )
+      setOrders(sorted)
+    }
+  }, [listData])
+
+  useEffect(() => {
+    if (shipmentsData) {
+      const sorted = [...shipmentsData].sort(
+        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      )
+      setShipments(sorted)
+    }
+  }, [shipmentsData])
+
+  useEffect(() => {
+    setLoading(isFetchingOrders || isFetchingShipments)
+  }, [isFetchingOrders, isFetchingShipments])
+
   useEffect(() => { loadData() }, [])
 
   async function loadData() {
-    setLoading(true)
-    try {
-      const { data: orderData } = await supabase
-        .from('orders')
-        .select('*, order_items(*), shipments(*)')
-        .order('created_at', { ascending: true })
-
-      setOrders(orderData || [])
-
-      const { data: shipData } = await supabase
-        .from('shipments')
-        .select('*, orders(*)')
-        .order('created_at', { ascending: true })
-      setShipments(shipData || [])
-    } catch (err: any) {
-      console.error('Load error:', err)
-    } finally {
-      setLoading(false)
-    }
+    await Promise.all([refetchOrders(), refetchShipments()])
   }
 
   // To bypass RLS on shipments for non-admins on frontend

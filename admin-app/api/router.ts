@@ -4,10 +4,12 @@ import { orderRouter } from "./routers/order";
 import { dispatchRouter } from "./routers/dispatch";
 import { cloudinaryRouter } from "./routers/cloudinary";
 import { productRouter } from "./routers/product";
+import { authRouter } from "./routers/auth";
 
 export const appRouter = createRouter({
   ping: publicQuery.query(() => ({ ok: true, ts: Date.now() })),
   verifyAdmin: adminQuery.query(() => ({ authorized: true })),
+  auth: authRouter,
   shipping: shippingRouter,
   order: orderRouter,
   dispatch: dispatchRouter,

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useMemo } from 'react'
-import { supabase } from '@/lib/supabase'
+import { trpc } from '@/providers/trpc'
 import { toast } from 'sonner'
 import { 
   Calculator, 
@@ -60,34 +60,32 @@ export default function AdminFinance() {
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
 
+  const yearNum = parseInt(selectedYear)
+  const startDate = new Date(yearNum, parseInt(selectedMonth) - 1, 1).toISOString()
+  const endDate = new Date(yearNum, parseInt(selectedMonth), 0, 23, 59, 59, 999).toISOString()
+
+  const { data: listData, refetch, isFetching } = trpc.order.list.useQuery({
+    startDate,
+    endDate,
+    limit: 10000,
+  })
+
   useEffect(() => {
-    fetchFinancialData()
-    setCurrentPage(1)
-  }, [selectedMonth, selectedYear])
+    if (listData?.orders) {
+      // Sort ascending as expected by AdminFinance
+      const sorted = [...listData.orders].sort(
+        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      )
+      setOrders(sorted)
+    }
+  }, [listData])
+
+  useEffect(() => {
+    setLoading(isFetching)
+  }, [isFetching])
 
   async function fetchFinancialData() {
-    setLoading(true)
-    try {
-      // Calculate start and end date for the selected month and year
-      const yearNum = parseInt(selectedYear)
-      const startDate = new Date(yearNum, parseInt(selectedMonth) - 1, 1)
-      const endDate = new Date(yearNum, parseInt(selectedMonth), 0, 23, 59, 59, 999)
-
-      // Fetch monthly order data along with items live
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*, order_items(*)')
-        .gte('created_at', startDate.toISOString())
-        .lte('created_at', endDate.toISOString())
-        .order('created_at', { ascending: true })
-
-      if (error) throw error
-      setOrders(data || [])
-    } catch (err) {
-      console.error('Error fetching financial details:', err)
-    } finally {
-      setLoading(false)
-    }
+    await refetch()
   }
 
   // Live client-side GST & HSN calculations (No database space or duplicate tables)

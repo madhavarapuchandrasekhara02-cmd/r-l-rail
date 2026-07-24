@@ -2,7 +2,8 @@
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { supabase, type Product, type ProductVariant } from '@/lib/supabase'
+import { type Product, type ProductVariant } from '@/lib/types'
+import { trpc } from '@/providers/trpc'
 import ProductCard from '@/components/ProductCard'
 import PageWrapper from '@/components/PageWrapper'
 import { CATEGORY_LIST } from '@/constants/categories'
@@ -23,67 +24,48 @@ export default function Shop() {
   const category = searchParams?.get('category') || ''
   const search = searchParams?.get('search') || ''
 
-  // Fetch category counts once on page mount using parallel Promise.all execution
+  const { data: countsData } = trpc.product.getCategoryCounts.useQuery()
+  const { data: listProducts, isFetching } = trpc.product.list.useQuery({
+    category: category || undefined,
+    search: search || undefined,
+  })
+
+  // Fetch category counts once on page mount
   useEffect(() => {
-    async function fetchCounts() {
-      try {
-        const { data, error } = await supabase.rpc('get_category_counts')
-        if (error) throw error
+    if (countsData) {
+      const countsMap: Record<string, number> = { all: 0, hair: 0, wellness: 0, face: 0, baby: 0 }
+      let total = 0
+      
+      countsData.forEach((row: { category: string; count: number }) => {
+        total += Number(row.count)
+        if (row.category === 'hair-rituals') countsMap.hair = Number(row.count)
+        else if (row.category === 'wellness-rituals') countsMap.wellness = Number(row.count)
+        else if (row.category === 'face-rituals') countsMap.face = Number(row.count)
+        else if (row.category === 'baby-rituals') countsMap.baby = Number(row.count)
+      })
+      countsMap.all = total
 
-        const countsMap: Record<string, number> = { all: 0, hair: 0, wellness: 0, face: 0, baby: 0 }
-        let total = 0
-        
-        data?.forEach((row: { category: string; count: number }) => {
-          total += Number(row.count)
-          if (row.category === 'hair-rituals') countsMap.hair = Number(row.count)
-          else if (row.category === 'wellness-rituals') countsMap.wellness = Number(row.count)
-          else if (row.category === 'face-rituals') countsMap.face = Number(row.count)
-          else if (row.category === 'baby-rituals') countsMap.baby = Number(row.count)
-        })
-        countsMap.all = total
-
-        setCounts({
-          all: countsMap.all,
-          hair: countsMap.hair,
-          wellness: countsMap.wellness,
-          face: countsMap.face,
-          baby: countsMap.baby,
-        })
-      } catch (err) {
-        console.error('Error fetching category counts:', err)
-      }
+      setCounts({
+        all: countsMap.all,
+        hair: countsMap.hair,
+        wellness: countsMap.wellness,
+        face: countsMap.face,
+        baby: countsMap.baby,
+      })
     }
-    fetchCounts()
-  }, [])
+  }, [countsData])
 
   // Fetch product list dynamically when filters or searches change
   useEffect(() => {
-    async function fetchProducts() {
-      setLoading(true)
-      try {
-        let query = supabase.from('products').select(`*, product_variants(*)`, { count: 'exact' })
-        if (category) query = query.eq('category', category)
-        if (search) query = query.ilike('name', `%${search}%`)
-        
-        const { data, error } = await query
-          .order('display_order', { ascending: true })
-          .order('created_at', { ascending: false })
-        if (error) { 
-          console.error('Supabase error:', error)
-          setLoading(false)
-          return 
-        }
-        
-        const mapped = (data || []).map((p: any) => ({ ...p, variants: p.product_variants || [] }))
-        setProducts(mapped)
-      } catch (err) { 
-        console.error('Fetch products error:', err) 
-      } finally { 
-        setLoading(false) 
-      }
+    if (listProducts) {
+      const mapped = listProducts.map((p: any) => ({ ...p, variants: p.product_variants || [] }))
+      setProducts(mapped)
     }
-    fetchProducts()
-  }, [category, search])
+  }, [listProducts])
+
+  useEffect(() => {
+    setLoading(isFetching)
+  }, [isFetching])
 
   const tabs = [
     { label: 'All', value: '', count: counts.all },

@@ -6,7 +6,8 @@ import { motion } from 'framer-motion'
 import { ChevronLeft, ChevronRight, Droplets, Heart, ShieldCheck, Wind, ArrowRight } from 'lucide-react'
 import useEmblaCarousel from 'embla-carousel-react'
 import Autoplay from 'embla-carousel-autoplay'
-import { supabase, type Product, type ProductVariant } from '@/lib/supabase'
+import { type Product, type ProductVariant } from '@/lib/types'
+import { trpc } from '@/providers/trpc'
 import ProductCard from '@/components/ProductCard'
 import SectionDivider from '@/components/SectionDivider'
 import dynamic from 'next/dynamic'
@@ -88,28 +89,18 @@ export default function Home() {
  
   // Removed manual set intervals. Embla Autoplay plugin now handles everything.
 
+  const { data: listProducts, isFetching } = trpc.product.list.useQuery()
+
   useEffect(() => {
-    async function fetchProducts() {
-      try {
-        const { data: products, error } = await supabase
-          .from('products')
-          .select(`*, product_variants(*)`)
-          .order('display_order', { ascending: true })
-          .order('created_at', { ascending: false })
-        if (error) { 
-          console.error('Supabase error:', error.message || error)
-          setLoading(false)
-          return 
-        }
-        const mapped = (products || []).map((p: any) => ({ ...p, variants: p.product_variants || [] }))
-        setFeaturedProducts(mapped)
-      } catch (err: any) { 
-        console.error('Fetch error:', err.message || err) 
-      }
-      finally { setLoading(false) }
+    if (listProducts) {
+      const mapped = listProducts.map((p: any) => ({ ...p, variants: p.product_variants || [] }))
+      setFeaturedProducts(mapped)
     }
-    fetchProducts()
-  }, [])
+  }, [listProducts])
+
+  useEffect(() => {
+    setLoading(isFetching)
+  }, [isFetching])
 
   return (
     <PageWrapper>

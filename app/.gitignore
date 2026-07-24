@@ -46,3 +46,4 @@ coverage/
 .vercel
 .next
 .vercel
+.env*

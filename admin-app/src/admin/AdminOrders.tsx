@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useState, useMemo } from 'react'
-import { supabase } from '@/lib/supabase'
 import { Truck, Eye, CheckCircle, Search, Filter, Calendar, MapPin, Phone, User, Package, ChevronRight, ChevronDown, ChevronUp, X, ExternalLink, MoreVertical, RefreshCw, AlertCircle, Printer, ArrowUpDown } from 'lucide-react'
 import { getPackedWeight, TARE_WEIGHT } from '@/lib/weight'
 import { trpc } from '@/providers/trpc'
@@ -35,9 +34,22 @@ export default function AdminOrders() {
 
   const updateStatusMutation = trpc.order.updateStatus.useMutation()
 
+  const { data: listData, refetch, isFetching } = trpc.order.list.useQuery({
+    status: statusFilter || undefined,
+    startDate: startDate || undefined,
+    endDate: endDate || undefined,
+    limit: 1000,
+  })
+
   useEffect(() => {
-    fetchOrders()
-  }, [statusFilter, startDate, endDate])
+    if (listData?.orders) {
+      setOrders(listData.orders)
+    }
+  }, [listData])
+
+  useEffect(() => {
+    setLoading(isFetching)
+  }, [isFetching])
 
   // Helper to securely trigger PDF downloads bypassing popup blockers & cookie limits on mobile
   const triggerLabelDownload = async (waybills: string[]) => {
@@ -45,32 +57,7 @@ export default function AdminOrders() {
   }
 
   async function fetchOrders() {
-    setLoading(true)
-    try {
-      let query = supabase
-        .from('orders')
-        .select('*, order_items(*), shipments(*)')
-        .order('created_at', { ascending: false })
-
-      if (statusFilter) query = query.eq('status', statusFilter)
-
-      if (startDate) {
-        query = query.gte('created_at', new Date(startDate).toISOString())
-      }
-      if (endDate) {
-        const end = new Date(endDate)
-        end.setHours(23, 59, 59, 999)
-        query = query.lte('created_at', end.toISOString())
-      }
-
-      const { data, error } = await query
-      if (error) throw error
-      setOrders(data || [])
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setLoading(false)
-    }
+    await refetch()
   }
 
   async function updateStatus(orderId: string, newStatus: string) {

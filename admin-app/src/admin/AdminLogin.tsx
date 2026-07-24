@@ -1,8 +1,7 @@
 "use client";
 import { useRouter } from 'next/navigation';
 import { useState } from 'react'
-
-import { supabase } from '@/lib/supabase'
+import { trpc } from '@/providers/trpc'
 
 export default function AdminLogin() {
   const router = useRouter()
@@ -11,29 +10,27 @@ export default function AdminLogin() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  const loginMutation = trpc.auth.login.useMutation()
+
   const handleLogin = async () => {
     if (!email || !password) return
     setLoading(true)
     setError('')
 
     try {
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
+      const data = await loginMutation.mutateAsync({
         email,
         password,
       })
 
-      if (authError) {
-        setError(authError.message)
-        setLoading(false)
-        return
-      }
-
-      if (data.session) {
-        document.cookie = `sb-access-token=${encodeURIComponent(data.session.access_token)}; path=/; max-age=86400`
+      if (data.token) {
+        document.cookie = `admin-token=${encodeURIComponent(data.token)}; path=/; max-age=86400; SameSite=Strict; Secure`
         router.push('/')
+      } else {
+        setError('Login failed')
       }
-    } catch {
-      setError('Login failed')
+    } catch (err: any) {
+      setError(err.message || 'Login failed')
     } finally {
       setLoading(false)
     }
@@ -117,4 +114,3 @@ export default function AdminLogin() {
     </div>
   )
 }
-

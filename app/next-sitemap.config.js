@@ -94,33 +94,36 @@ const config = {
     },
     ];
 
-    // Fetch dynamic products from Supabase
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    // Fetch dynamic products from Railway Database
+    const databaseUrl = process.env.DATABASE_URL;
 
-  if (supabaseUrl && supabaseAnonKey) {
-    try {
-      const { createClient } = await import("@supabase/supabase-js");
-      const supabase = createClient(supabaseUrl, supabaseAnonKey);
-      const { data: products } = await supabase.from("products").select("slug, updated_at");
-      
-      if (products) {
-        for (const product of products) {
-          paths.push({
-            loc: `/product/${product.slug}`,
-            changefreq: "weekly",
-            priority: 0.90,
-            lastmod: product.updated_at || new Date().toISOString(),
-          });
+    if (databaseUrl) {
+      try {
+        const { Pool } = await import("pg");
+        const pool = new Pool({
+          connectionString: databaseUrl,
+          ssl: { rejectUnauthorized: false },
+        });
+        const { rows: products } = await pool.query("SELECT slug, updated_at FROM products");
+        await pool.end();
+        
+        if (products) {
+          for (const product of products) {
+            paths.push({
+              loc: `/product/${product.slug}`,
+              changefreq: "weekly",
+              priority: 0.90,
+              lastmod: product.updated_at ? new Date(product.updated_at).toISOString() : new Date().toISOString(),
+            });
+          }
         }
+      } catch (e) {
+        console.error("Error fetching products for sitemap:", e);
       }
-    } catch (e) {
-      console.error("Error fetching products for sitemap:", e);
     }
-  }
 
-  return paths;
-},
+    return paths;
+  },
 
   // Transform function to add image tags for product pages
   transform: async (config, path) => {

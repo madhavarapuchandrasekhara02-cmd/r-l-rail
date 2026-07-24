@@ -13,21 +13,21 @@ describe('Base64 Token Cookie Parsing Logic', () => {
       const value = pair.substring(idx + 1).trim();
       cookies[key] = value;
     }
-    return cookies["sb-access-token"] ? decodeURIComponent(cookies["sb-access-token"]) : "";
+    return cookies["admin-token"] ? decodeURIComponent(cookies["admin-token"]) : "";
   }
 
   it('correctly extracts token with single equal sign', () => {
-    const cookie = "sb-access-token=token_value_abc"
+    const cookie = "admin-token=token_value_abc"
     expect(parseTokenFromCookie(cookie)).toBe("token_value_abc")
   })
 
   it('preserves base64 equal padding characters at the end of the token', () => {
-    const cookie = "sb-access-token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSJ9.padding_test=="
+    const cookie = "admin-token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSJ9.padding_test=="
     expect(parseTokenFromCookie(cookie)).toBe("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSJ9.padding_test==")
   })
 
   it('handles multiple cookies correctly', () => {
-    const cookie = "other-cookie=hello; sb-access-token=token_with_padding==; another-cookie=world"
+    const cookie = "other-cookie=hello; admin-token=token_with_padding==; another-cookie=world"
     expect(parseTokenFromCookie(cookie)).toBe("token_with_padding==")
   })
 })

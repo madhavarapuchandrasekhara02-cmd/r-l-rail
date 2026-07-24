@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { createRouter, publicQuery, publicMutation } from '../trpc-middleware'
-import { supabaseAdmin } from '../lib/supabase-admin'
+import { db } from '../lib/db'
 import crypto from 'crypto'
 
 import { env } from '../../src/lib/env'
@@ -52,17 +52,23 @@ export const paymentRouter = createRouter({
         }
         console.log(`[Razorpay initiate] Starting secure price calculation for Order ID: ${input.orderId}`)
 
-        // 1. Fetch the order and nested items directly from Supabase
-        const { data: dbOrder, error: orderErr } = await supabaseAdmin
-          .from('orders')
-          .select('*, order_items(*)')
-          .eq('id', input.orderId)
-          .single()
+        // 1. Fetch the order directly from Database
+        const orderResult = await db.query(
+          'SELECT * FROM orders WHERE id = $1',
+          [input.orderId]
+        )
 
-        if (orderErr || !dbOrder) {
-          console.error('[Razorpay initiate] Error fetching order:', orderErr)
+        if (orderResult.rows.length === 0) {
           throw new Error('Order not found in database')
         }
+        const dbOrder = orderResult.rows[0]
+
+        // Fetch associated order items
+        const itemsResult = await db.query(
+          'SELECT * FROM order_items WHERE order_id = $1',
+          [input.orderId]
+        )
+        dbOrder.order_items = itemsResult.rows
 
         if (dbOrder.status !== 'Pending') {
           console.warn(`[Razorpay initiate] Blocked: Order status is '${dbOrder.status}', expected 'Pending'. Order ID: ${input.orderId}`)
@@ -98,15 +104,11 @@ export const paymentRouter = createRouter({
         const order = await createRazorpayOrder(amountInPaise, dbOrder.id)
         console.log('[Razorpay Order Creation API] Response Payload:', JSON.stringify(order, null, 2))
 
-        // 4. Update the order total and the razorpay order reference in Supabase
-        await supabaseAdmin
-          .from('orders')
-          .update({ 
-            total: calculatedTotal,
-            payment_method: `razorpay_order:${order.id}`,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', input.orderId)
+        // 4. Update the order total and the razorpay order reference in Database
+        await db.query(
+          'UPDATE orders SET total = $1, payment_method = $2, updated_at = $3 WHERE id = $4',
+          [calculatedTotal, `razorpay_order:${order.id}`, new Date().toISOString(), input.orderId]
+        )
 
         return {
           success: true,
@@ -152,13 +154,15 @@ export const paymentRouter = createRouter({
         }
 
         // Concurrency Guard Check: Check if order status is already Paid/Shipped/Delivered to prevent double-writes under load
-        const { data: dbOrder, error: fetchErr } = await supabaseAdmin
-          .from('orders')
-          .select('status, payment_method')
-          .eq('id', input.orderId)
-          .single()
+        const orderResult = await db.query(
+          'SELECT status, payment_method FROM orders WHERE id = $1',
+          [input.orderId]
+        )
 
-        if (fetchErr) throw fetchErr
+        if (orderResult.rows.length === 0) {
+          throw new Error('Order not found in database')
+        }
+        const dbOrder = orderResult.rows[0]
 
         if (dbOrder.status === 'Paid' || dbOrder.status === 'Shipped' || dbOrder.status === 'Delivered') {
           console.log(`[Razorpay verifyPayment] Order ${input.orderId} already in status '${dbOrder.status}'. Skipping redundant state update.`)
@@ -174,17 +178,17 @@ export const paymentRouter = createRouter({
           }
         }
 
-        // Update order status to Paid
-        const { error } = await supabaseAdmin
-          .from('orders')
-          .update({ 
-            status: 'Paid', 
-            payment_method: `razorpay:${input.razorpayPaymentId}`,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', input.orderId)
+        // Update order status to Paid securely (Atomic status lock check)
+        const updateResult = await db.query(
+          "UPDATE orders SET status = $1, payment_method = $2, updated_at = $3 WHERE id = $4 AND status = 'Pending'",
+          ['Paid', `razorpay:${input.razorpayPaymentId}`, new Date().toISOString(), input.orderId]
+        )
 
-        if (error) throw error
+        if (updateResult.rowCount === 0) {
+          console.log(`[Razorpay verifyPayment] Order ${input.orderId} was already marked as Paid. Skipping duplicate update.`)
+          return { success: true }
+        }
+
         console.log(`[Razorpay verifyPayment] Order ${input.orderId} successfully transitioned to Paid status.`)
 
         return { success: true }

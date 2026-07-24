@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { trpc } from '@/providers/trpc'
-import { supabase } from '@/lib/supabase'
 import { downloadBulkLabels } from '@/lib/pdf'
 import { toast } from 'sonner'
 import {

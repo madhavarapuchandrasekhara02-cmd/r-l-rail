@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   AreaChart, Area, LineChart, Line 
@@ -8,73 +7,66 @@ import {
 import { 
   Activity, Calendar, TrendingUp, Trophy 
 } from 'lucide-react'
+import { trpc } from '@/providers/trpc'
 
 export default function AdminAnalytics() {
-  const [loading, setLoading] = useState(true)
+  const { data, isLoading } = trpc.order.getAnalyticsData.useQuery()
   const [chartData, setChartData] = useState<any[]>([])
   const [weekStats, setWeekStats] = useState({ orders: 0, customers: 0, sales: 0 })
   const [monthStats, setMonthStats] = useState({ orders: 0, customers: 0, sales: 0 })
   const [topProducts, setTopProducts] = useState<any[]>([])
 
+  const loading = isLoading
+
   useEffect(() => {
-    fetchAnalytics()
-  }, [])
+    if (!data) return
 
-  async function fetchAnalytics() {
-    setLoading(true)
-    try {
-      const now = new Date()
-      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    const now = new Date()
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+    const startOfMonthDate = new Date(now.getFullYear(), now.getMonth(), 1)
 
-      // 1. Fetch Orders for Chart (Last 30 Days)
-      const { data: thirtyDayOrders } = await supabase
-        .from('orders')
-        .select('created_at, total, customer_phone')
-        .gte('created_at', thirtyDaysAgo.toISOString())
+    const thirtyDayOrders = data.orders || []
+    const topProds = data.topProducts || []
 
-      // Process Chart Data
-      const dailyData: Record<string, any> = {}
-      for (let i = 29; i >= 0; i--) {
-        const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000)
-        const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-        dailyData[dateStr] = { date: dateStr, orders: 0, sales: 0 }
-      }
-
-      thirtyDayOrders?.forEach(o => {
-        const dateStr = new Date(o.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-        if (dailyData[dateStr]) {
-          dailyData[dateStr].orders += 1
-          dailyData[dateStr].sales += o.total || 0
-        }
-      })
-      setChartData(Object.values(dailyData))
-
-      // 2. Week Stats (Last 7 Days)
-      const weekOrders = thirtyDayOrders?.filter(o => new Date(o.created_at) >= sevenDaysAgo) || []
-      const weekCustomers = new Set(weekOrders.map(o => o.customer_phone)).size
-      const weekSales = weekOrders.reduce((sum, o) => sum + (o.total || 0), 0)
-      setWeekStats({ orders: weekOrders.length, customers: weekCustomers, sales: weekSales })
-
-      // 3. Month Stats (Current Month)
-      const monthOrders = thirtyDayOrders?.filter(o => new Date(o.created_at) >= startOfMonth) || []
-      const monthCustomers = new Set(monthOrders.map(o => o.customer_phone)).size
-      const monthSales = monthOrders.reduce((sum, o) => sum + (o.total || 0), 0)
-      setMonthStats({ orders: monthOrders.length, customers: monthCustomers, sales: monthSales })
-
-      // 4. Top Products (Aggregated via database function)
-      const { data: topProds } = await supabase
-        .rpc('get_top_products', { limit_count: 5 })
-      
-      setTopProducts(topProds || [])
-
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setLoading(false)
+    // Process Chart Data
+    const dailyData: Record<string, any> = {}
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000)
+      const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      dailyData[dateStr] = { date: dateStr, orders: 0, sales: 0 }
     }
-  }
+
+    thirtyDayOrders.forEach((o: any) => {
+      const dateStr = new Date(o.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      if (dailyData[dateStr]) {
+        dailyData[dateStr].orders += 1
+        dailyData[dateStr].sales += o.total || 0
+      }
+    })
+    setChartData(Object.values(dailyData))
+
+    // Week Stats (Last 7 Days)
+    const weekOrders = thirtyDayOrders.filter((o: any) => new Date(o.created_at) >= sevenDaysAgo)
+    const weekCustomers = new Set(weekOrders.map((o: any) => o.customer_phone)).size
+    const weekSales = weekOrders.reduce((sum: number, o: any) => sum + (o.total || 0), 0)
+    setWeekStats({ orders: weekOrders.length, customers: weekCustomers, sales: weekSales })
+
+    // Month Stats (Current Month)
+    const monthOrders = thirtyDayOrders.filter((o: any) => new Date(o.created_at) >= startOfMonthDate)
+    const monthCustomers = new Set(monthOrders.map((o: any) => o.customer_phone)).size
+    const monthSales = monthOrders.reduce((sum: number, o: any) => sum + (o.total || 0), 0)
+    setMonthStats({ orders: monthOrders.length, customers: monthCustomers, sales: monthSales })
+
+    // Top Products
+    setTopProducts(
+      topProds.map((p: any) => ({
+        product_name: p.product_name,
+        total_quantity: Number(p.total_quantity),
+        total_revenue: Number(p.total_revenue),
+      }))
+    )
+  }, [data])
 
   if (loading) {
     return (
@@ -119,122 +111,102 @@ export default function AdminAnalytics() {
                   <stop offset="95%" stopColor="#B37943" stopOpacity={0}/>
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F0EFEA" />
-              <XAxis 
-                dataKey="date" 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{fill: '#B37943', fontSize: 9, fontWeight: 600}} 
-                dy={10}
-              />
-              <YAxis 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{fill: '#B37943', fontSize: 9, fontWeight: 600}} 
-              />
+              <CartesianGrid strokeDasharray="3 3" stroke="#FAF3E8" vertical={false} />
+              <XAxis dataKey="date" stroke="#8B7355" fontSize={10} tickLine={false} axisLine={false} />
+              <YAxis stroke="#8B7355" fontSize={10} tickLine={false} axisLine={false} />
               <Tooltip 
                 contentStyle={{ 
-                  borderRadius: '12px', 
-                  border: '1px solid #E5C492', 
-                  boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)',
-                  fontSize: '11px',
-                  fontFamily: 'Manrope'
-                }} 
+                  backgroundColor: '#FAF9F6', 
+                  borderColor: '#E5C492', 
+                  borderRadius: '1rem',
+                  boxShadow: '0 10px 15px -3px rgba(74, 53, 37, 0.05)'
+                }}
+                labelStyle={{ fontFamily: 'serif', color: '#4A3525', fontWeight: 'bold' }}
               />
-              <Area 
-                type="monotone" 
-                dataKey="orders" 
-                stroke="#B37943" 
-                strokeWidth={2.5}
-                fillOpacity={1} 
-                fill="url(#colorOrders)" 
-              />
+              <Area type="monotone" dataKey="orders" name="Orders" stroke="#B37943" strokeWidth={2} fillOpacity={1} fill="url(#colorOrders)" />
             </AreaChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      {/* Stats Grids */}
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* Weekly Performance */}
-        <div className="bg-[#4A3525] rounded-2xl sm:rounded-[1.5rem] p-4 sm:p-8 text-white shadow-2xl shadow-[#4A3525]/20 relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-8 opacity-5">
-            <Calendar className="w-32 h-32" />
-          </div>
-          <div className="relative z-10">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-serif">Weekly Velocity</h3>
-              <span className="px-2 py-0.5 bg-white/10 rounded-full text-[8px] font-bold uppercase tracking-[0.2em]">Rolling 7 Days</span>
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left Side: Summary Cards */}
+        <div className="space-y-6">
+          {/* Week Summary */}
+          <div className="bg-white rounded-2xl sm:rounded-[1.5rem] border border-[#E5C492] p-6 shadow-xl shadow-[#4A3525]/5">
+            <div className="flex items-center gap-3 text-xs text-[#B37943] uppercase font-bold tracking-widest mb-4">
+              <Calendar className="w-4 h-4" /> 7-Day Velocity
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <div className="space-y-4">
               <div>
-                <p className="text-[9px] font-bold uppercase tracking-widest opacity-60 mb-1">Orders</p>
-                <p className="text-2xl font-serif">{weekStats.orders}</p>
+                <p className="text-[10px] text-[#8B7355] uppercase font-bold tracking-wider">Gross Bookings</p>
+                <p className="text-3xl font-serif text-[#4A3525]">₹{weekStats.sales.toLocaleString('en-IN')}</p>
               </div>
-              <div>
-                <p className="text-[9px] font-bold uppercase tracking-widest opacity-60 mb-1">Customers</p>
-                <p className="text-2xl font-serif">{weekStats.customers}</p>
+              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-[#FAF3E8]">
+                <div>
+                  <p className="text-[9px] text-[#8B7355] uppercase font-bold tracking-wider">Orders</p>
+                  <p className="text-lg font-bold text-[#4A3525]">{weekStats.orders}</p>
+                </div>
+                <div>
+                  <p className="text-[9px] text-[#8B7355] uppercase font-bold tracking-wider">Customers</p>
+                  <p className="text-lg font-bold text-[#4A3525]">{weekStats.customers}</p>
+                </div>
               </div>
+            </div>
+          </div>
+
+          {/* Month Summary */}
+          <div className="bg-white rounded-2xl sm:rounded-[1.5rem] border border-[#E5C492] p-6 shadow-xl shadow-[#4A3525]/5">
+            <div className="flex items-center gap-3 text-xs text-[#B37943] uppercase font-bold tracking-widest mb-4">
+              <TrendingUp className="w-4 h-4" /> Month-To-Date
+            </div>
+            <div className="space-y-4">
               <div>
-                <p className="text-[9px] font-bold uppercase tracking-widest opacity-60 mb-1">Total Sales</p>
-                <p className="text-2xl font-serif">₹{weekStats.sales.toLocaleString()}</p>
+                <p className="text-[10px] text-[#8B7355] uppercase font-bold tracking-wider">Gross Bookings</p>
+                <p className="text-3xl font-serif text-[#4A3525]">₹{monthStats.sales.toLocaleString('en-IN')}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-[#FAF3E8]">
+                <div>
+                  <p className="text-[9px] text-[#8B7355] uppercase font-bold tracking-wider">Orders</p>
+                  <p className="text-lg font-bold text-[#4A3525]">{monthStats.orders}</p>
+                </div>
+                <div>
+                  <p className="text-[9px] text-[#8B7355] uppercase font-bold tracking-wider">Customers</p>
+                  <p className="text-lg font-bold text-[#4A3525]">{monthStats.customers}</p>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Monthly Performance */}
-        <div className="bg-white rounded-2xl sm:rounded-[1.5rem] border border-[#E5C492] p-4 sm:p-8 shadow-xl shadow-[#4A3525]/5 relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-8 opacity-5">
-            <TrendingUp className="w-32 h-32 text-[#B37943]" />
-          </div>
-          <div className="relative z-10">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-serif text-[#4A3525]">Monthly Trajectory</h3>
-              <span className="px-2 py-0.5 bg-[#FAF9F6] text-[#B37943] rounded-full text-[8px] font-bold uppercase tracking-[0.2em]">Current Month</span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-              <div>
-                <p className="text-[9px] font-bold uppercase tracking-widest text-[#B37943] mb-1">Orders</p>
-                <p className="text-2xl font-serif text-[#4A3525]">{monthStats.orders}</p>
-              </div>
-              <div>
-                <p className="text-[9px] font-bold uppercase tracking-widest text-[#B37943] mb-1">Customers</p>
-                <p className="text-2xl font-serif text-[#4A3525]">{monthStats.customers}</p>
-              </div>
-              <div>
-                <p className="text-[9px] font-bold uppercase tracking-widest text-[#B37943] mb-1">Total Sales</p>
-                <p className="text-2xl font-serif text-[#4A3525]">₹{monthStats.sales.toLocaleString()}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Better Things Section */}
-      <div className="grid lg:grid-cols-1 gap-6">
-        {/* Top Products */}
-        <div className="bg-white rounded-2xl sm:rounded-[1.5rem] border border-[#E5C492] p-4 sm:p-8 shadow-sm">
-          <div className="flex items-center gap-4 mb-8">
-            <div className="w-12 h-12 bg-[#FAF9F6] rounded-2xl flex items-center justify-center text-[#B37943]">
-              <Trophy className="w-6 h-6" />
-            </div>
+        {/* Right Side: Product Rankings */}
+        <div className="lg:col-span-2 bg-white rounded-2xl sm:rounded-[1.5rem] border border-[#E5C492] p-6 shadow-xl shadow-[#4A3525]/5">
+          <div className="flex items-center justify-between mb-8">
             <div>
-              <h3 className="text-sm font-serif text-[#4A3525]">Top Sellers</h3>
-              <p className="text-[10px] font-bold text-[#B37943] uppercase tracking-widest">Catalog Alpha</p>
+              <h3 className="text-lg font-serif text-[#4A3525] flex items-center gap-2">
+                <Trophy className="w-5 h-5 text-[#B37943]" /> Catalog Leadership
+              </h3>
+              <p className="text-[10px] font-bold text-[#B37943] uppercase tracking-widest mt-0.5">Top Sellers by Volume</p>
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-12 gap-y-6">
+
+          <div className="space-y-4">
             {topProducts.length === 0 ? (
-              <p className="text-xs text-[#B37943] italic">Waiting for market data...</p>
+              <p className="text-center text-sm text-[#8B7355] py-12">No data recorded.</p>
             ) : (
-              topProducts.map((p, i) => (
-                <div key={i} className="flex items-center justify-between border-b border-[#FAF9F6] pb-3">
-                  <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-bold text-[#B37943] w-4">0{i + 1}</span>
-                    <p className="text-xs font-medium text-[#4A3525]">{p.product_name}</p>
+              topProducts.map((p, idx) => (
+                <div key={idx} className="flex items-center justify-between p-4 bg-[#FAF9F6]/50 rounded-xl border border-[#FAF3E8]">
+                  <div className="flex items-center gap-4">
+                    <span className="text-xs font-serif font-bold text-[#B37943] bg-[#FAF3E8] w-6 h-6 flex items-center justify-center rounded-lg border border-[#E5C492]/40">{idx + 1}</span>
+                    <div>
+                      <p className="text-xs font-bold text-[#4A3525]">{p.product_name}</p>
+                      <p className="text-[9px] text-[#8B7355] uppercase tracking-wider mt-0.5">{p.total_quantity} Units Transacted</p>
+                    </div>
                   </div>
-                  <span className="text-[10px] font-bold text-[#B37943]">{p.quantity} Units</span>
+                  <div className="text-right">
+                    <p className="text-xs font-bold text-[#4A3525]">₹{p.total_revenue.toLocaleString('en-IN')}</p>
+                  </div>
                 </div>
               ))
             )}
@@ -244,4 +216,3 @@ export default function AdminAnalytics() {
     </div>
   )
 }
-

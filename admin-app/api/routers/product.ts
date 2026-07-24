@@ -1,18 +1,32 @@
 import { z } from 'zod'
 import { createRouter, adminQuery, adminMutation } from '../trpc-middleware'
-import { supabaseAdmin } from '../lib/supabase-admin'
+import { db } from '../lib/db'
 
 export const productRouter = createRouter({
   list: adminQuery
     .query(async () => {
-      const { data, error } = await supabaseAdmin
-        .from('products')
-        .select('*, product_variants(*)')
-        .order('display_order', { ascending: true })
-        .order('created_at', { ascending: false })
+      const { rows: products } = await db.query(`
+        SELECT p.*, COALESCE(
+          json_agg(
+            json_build_object(
+              'id', pv.id,
+              'product_id', pv.product_id,
+              'size_label', pv.size_label,
+              'price', pv.price,
+              'sku', pv.sku,
+              'stock', pv.stock,
+              'created_at', pv.created_at
+            ) ORDER BY pv.created_at ASC
+          ) FILTER (WHERE pv.id IS NOT NULL),
+          '[]'::json
+        ) AS product_variants
+        FROM products p
+        LEFT JOIN product_variants pv ON p.id = pv.product_id
+        GROUP BY p.id
+        ORDER BY p.display_order ASC, p.created_at DESC
+      `)
 
-      if (error) throw error
-      return data || []
+      return products || []
     }),
 
   upsert: adminMutation
@@ -33,39 +47,32 @@ export const productRouter = createRouter({
       })
     )
     .mutation(async ({ input }) => {
-      const productData = {
-        name: input.name,
-        slug: input.slug,
-        description: input.description || null,
-        ingredients: input.ingredients || null,
-        how_to_use: input.how_to_use || null,
-        rating: input.rating,
-        category: input.category,
-        images: input.images,
-        gst_rate: input.gst_rate,
-        hsn_code: input.hsn_code,
-        display_order: input.display_order,
-      }
+      const productData = [
+        input.name,
+        input.slug,
+        input.description || null,
+        input.ingredients || null,
+        input.how_to_use || null,
+        input.rating,
+        input.category,
+        input.images,
+        input.gst_rate,
+        input.hsn_code,
+        input.display_order,
+      ]
 
       if (input.id) {
-        const { data, error } = await supabaseAdmin
-          .from('products')
-          .update(productData)
-          .eq('id', input.id)
-          .select('id')
-          .single()
-
-        if (error) throw error
-        return data
+        const { rows } = await db.query(
+          'UPDATE products SET name = $1, slug = $2, description = $3, ingredients = $4, how_to_use = $5, rating = $6, category = $7, images = $8, gst_rate = $9, hsn_code = $10, display_order = $11, updated_at = NOW() WHERE id = $12 RETURNING id',
+          [...productData, input.id]
+        )
+        return rows[0]
       } else {
-        const { data, error } = await supabaseAdmin
-          .from('products')
-          .insert([productData])
-          .select('id')
-          .single()
-
-        if (error) throw error
-        return data
+        const { rows } = await db.query(
+          'INSERT INTO products (name, slug, description, ingredients, how_to_use, rating, category, images, gst_rate, hsn_code, display_order) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id',
+          productData
+        )
+        return rows[0]
       }
     }),
 
@@ -81,27 +88,16 @@ export const productRouter = createRouter({
       })
     )
     .mutation(async ({ input }) => {
-      const variantData = {
-        product_id: input.productId,
-        size_label: input.sizeLabel,
-        price: input.price,
-        sku: input.sku,
-        stock: input.stock,
-      }
-
       if (input.id) {
-        const { error } = await supabaseAdmin
-          .from('product_variants')
-          .update(variantData)
-          .eq('id', input.id)
-
-        if (error) throw error
+        await db.query(
+          'UPDATE product_variants SET size_label = $1, price = $2, sku = $3, stock = $4 WHERE id = $5',
+          [input.sizeLabel, input.price, input.sku, input.stock, input.id]
+        )
       } else {
-        const { error } = await supabaseAdmin
-          .from('product_variants')
-          .insert([variantData])
-
-        if (error) throw error
+        await db.query(
+          'INSERT INTO product_variants (product_id, size_label, price, sku, stock) VALUES ($1, $2, $3, $4, $5)',
+          [input.productId, input.sizeLabel, input.price, input.sku, input.stock]
+        )
       }
 
       return { success: true }
@@ -110,40 +106,55 @@ export const productRouter = createRouter({
   delete: adminMutation
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ input }) => {
-      // Cascade delete is handled by database constraint, but we explicitly drop variants first just in case
-      const { error: variantError } = await supabaseAdmin
-        .from('product_variants')
-        .delete()
-        .eq('product_id', input.id)
+      // Cascade delete: product_variants first, then product
+      await db.query(
+        'DELETE FROM product_variants WHERE product_id = $1',
+        [input.id]
+      )
 
-      if (variantError) throw variantError
+      await db.query(
+        'DELETE FROM products WHERE id = $1',
+        [input.id]
+      )
 
-      const { error: productError } = await supabaseAdmin
-        .from('products')
-        .delete()
-        .eq('id', input.id)
-
-      if (productError) throw productError
       return { success: true }
     }),
 
   deleteVariant: adminMutation
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ input }) => {
-      const { error } = await supabaseAdmin
-        .from('product_variants')
-        .delete()
-        .eq('id', input.id)
-
-      if (error) throw error
+      await db.query(
+        'DELETE FROM product_variants WHERE id = $1',
+        [input.id]
+      )
       return { success: true }
     }),
 
   getNextSku: adminMutation
     .input(z.object({ prefix: z.string().min(1) }))
     .mutation(async ({ input }) => {
-      const { data, error } = await supabaseAdmin.rpc('get_next_sku', { prefix: input.prefix })
-      if (error) throw error
-      return data as string
+      try {
+        const { rows } = await db.query('SELECT get_next_sku($1) as next_sku', [input.prefix])
+        return rows[0].next_sku
+      } catch (e) {
+        // Fallback: search variants for SKU starting with prefix
+        const { rows } = await db.query(
+          "SELECT sku FROM product_variants WHERE sku LIKE $1 ORDER BY sku DESC LIMIT 1",
+          [`${input.prefix}%`]
+        )
+        if (rows.length === 0) {
+          return `${input.prefix}1001`
+        }
+        // Try to parse the trailing digits
+        const lastSku = rows[0].sku
+        const match = lastSku.match(/\d+$/)
+        if (match) {
+          const num = parseInt(match[0], 10)
+          const nextNum = num + 1
+          const prefixPart = lastSku.substring(0, lastSku.length - match[0].length)
+          return `${prefixPart}${nextNum}`
+        }
+        return `${lastSku}-1`
+      }
     })
 })

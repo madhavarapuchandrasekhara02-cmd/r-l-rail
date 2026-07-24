@@ -1,7 +1,7 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import type { TrpcContext } from "./context";
-import { supabaseAdmin } from "./lib/supabase-admin";
+import { db } from "./lib/db";
 
 const t = initTRPC.context<TrpcContext>().create({
   transformer: superjson,
@@ -33,35 +33,27 @@ const rateLimiter = t.middleware(async ({ ctx, next }) => {
   const nowMs = Date.now();
 
   try {
-    // 1. Fetch current rate limit info from Supabase
-    const { data: limitRecord, error: fetchErr } = await supabaseAdmin
-      .from('rate_limits')
-      .select('*')
-      .eq('ip', ip)
-      .maybeSingle();
-
-    if (fetchErr) throw fetchErr;
+    // 1. Fetch current rate limit info from database
+    const { rows } = await db.query(
+      'SELECT * FROM rate_limits WHERE ip = $1',
+      [ip]
+    );
+    const limitRecord = rows[0];
 
     if (!limitRecord) {
       // Create new limit window
-      await supabaseAdmin
-        .from('rate_limits')
-        .insert({
-          ip,
-          count: 1,
-          expires_at: new Date(nowMs + RATE_LIMIT_WINDOW_MS).toISOString()
-        });
+      await db.query(
+        'INSERT INTO rate_limits (ip, count, expires_at) VALUES ($1, $2, $3)',
+        [ip, 1, new Date(nowMs + RATE_LIMIT_WINDOW_MS).toISOString()]
+      );
     } else {
       const expiresAt = new Date(limitRecord.expires_at).getTime();
       if (nowMs > expiresAt) {
         // Window expired: Reset counter and set new window
-        await supabaseAdmin
-          .from('rate_limits')
-          .update({
-            count: 1,
-            expires_at: new Date(nowMs + RATE_LIMIT_WINDOW_MS).toISOString()
-          })
-          .eq('ip', ip);
+        await db.query(
+          'UPDATE rate_limits SET count = $1, expires_at = $2 WHERE ip = $3',
+          [1, new Date(nowMs + RATE_LIMIT_WINDOW_MS).toISOString(), ip]
+        );
       } else {
         // Within window: Increment count
         const newCount = limitRecord.count + 1;
@@ -72,15 +64,15 @@ const rateLimiter = t.middleware(async ({ ctx, next }) => {
           });
         }
 
-        await supabaseAdmin
-          .from('rate_limits')
-          .update({ count: newCount })
-          .eq('ip', ip);
+        await db.query(
+          'UPDATE rate_limits SET count = $1 WHERE ip = $2',
+          [newCount, ip]
+        );
       }
     }
   } catch (err: any) {
     if (err instanceof TRPCError) throw err;
-    console.error('[Rate Limiter] Supabase rate limit check failed. Falling back to memory-based limiter.', err.message || err);
+    console.error('[Rate Limiter] DB rate limit check failed. Falling back to memory-based limiter.', err.message || err);
     
     // Memory fallback logic
     // Periodic inline cleanup sweep to prevent memory leaks in fallback
@@ -115,4 +107,3 @@ const rateLimiter = t.middleware(async ({ ctx, next }) => {
 export const createRouter = t.router;
 export const publicQuery = t.procedure;
 export const publicMutation = t.procedure.use(rateLimiter);
-

@@ -17,9 +17,14 @@ const nextConfig = {
 
   // ── Image Optimization ───────────────────────────────────────────────────
   images: {
-    // Bypass local server-side optimization; delegate directly to Cloudinary
-    loader: 'custom',
-    loaderFile: './src/lib/cloudinary-loader.ts',
+    minimumCacheTTL: 31536000, // Cache optimized images locally for 1 year
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
+        pathname: '/**',
+      },
+    ],
   },
 
   // ── Bundle Optimization ──────────────────────────────────────────────────
@@ -44,7 +49,7 @@ const nextConfig = {
           { key: "Cross-Origin-Resource-Policy", value: "same-site" },
           {
             key: "Content-Security-Policy",
-            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://checkout.razorpay.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https://res.cloudinary.com https://*.supabase.co; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co https://api.razorpay.com https://checkout.razorpay.com; frame-src 'self' https://checkout.razorpay.com https://api.razorpay.com;",
+            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://checkout.razorpay.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https://res.cloudinary.com; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://api.razorpay.com https://checkout.razorpay.com; frame-src 'self' https://checkout.razorpay.com https://api.razorpay.com;",
           },
         ],
       },

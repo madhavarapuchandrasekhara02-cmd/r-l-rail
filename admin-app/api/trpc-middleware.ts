@@ -1,7 +1,8 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import type { TrpcContext } from "./context";
-import { supabaseAdmin } from "./lib/supabase-admin";
+import { verifyToken } from "./lib/auth";
+import { env } from '../src/lib/env';
 
 const t = initTRPC.context<TrpcContext>().create({
   transformer: superjson,
@@ -20,8 +21,6 @@ const t = initTRPC.context<TrpcContext>().create({
     };
   },
 });
-
-import { env } from '../src/lib/env';
 
 // Parse admin emails from env (comma-separated, lowercased)
 const ADMIN_EMAILS = (env.ADMIN_EMAILS || "")
@@ -44,8 +43,8 @@ function extractToken(req: Request): string {
     const value = pair.substring(idx + 1).trim();
     cookies[key] = value;
   }
-  return cookies["sb-access-token"]
-    ? decodeURIComponent(cookies["sb-access-token"])
+  return cookies["admin-token"]
+    ? decodeURIComponent(cookies["admin-token"])
     : "";
 }
 
@@ -60,20 +59,21 @@ const isAuthed = t.middleware(async ({ ctx, next }) => {
     });
   }
 
-  const {
-    data: { user },
-    error,
-  } = await supabaseAdmin.auth.getUser(token);
-  if (error || !user) {
+  try {
+    const payload = verifyToken(token)
+    const user = {
+      id: payload.userId,
+      email: payload.email,
+    }
+    return next({
+      ctx: { ...ctx, user },
+    });
+  } catch (err) {
     throw new TRPCError({
       code: "UNAUTHORIZED",
       message: "Session is invalid or token check failed.",
     });
   }
-
-  return next({
-    ctx: { ...ctx, user },
-  });
 });
 
 // Middleware: verifies user is authenticated AND is an admin
@@ -87,30 +87,33 @@ const isAdmin = t.middleware(async ({ ctx, next }) => {
     });
   }
 
-  const {
-    data: { user },
-    error,
-  } = await supabaseAdmin.auth.getUser(token);
-  if (error || !user) {
+  try {
+    const payload = verifyToken(token)
+    const user = {
+      id: payload.userId,
+      email: payload.email,
+    }
+
+    // Verify the user's email is in the admin list
+    const userEmail = (user.email || "").toLowerCase();
+    if (ADMIN_EMAILS.length === 0 || !ADMIN_EMAILS.includes(userEmail)) {
+      console.warn(`[Security Alert] Failed admin access attempt for email: ${userEmail}`);
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "You do not have admin access to this resource.",
+      });
+    }
+
+    return next({
+      ctx: { ...ctx, user },
+    });
+  } catch (err: any) {
+    if (err instanceof TRPCError) throw err
     throw new TRPCError({
       code: "UNAUTHORIZED",
       message: "Session is invalid or token check failed.",
     });
   }
-
-  // Verify the user's email is in the admin list
-  const userEmail = (user.email || "").toLowerCase();
-  if (ADMIN_EMAILS.length === 0 || !ADMIN_EMAILS.includes(userEmail)) {
-    console.warn(`[Security Alert] Failed admin access attempt for email: ${userEmail}`);
-    throw new TRPCError({
-      code: "FORBIDDEN",
-      message: "You do not have admin access to this resource.",
-    });
-  }
-
-  return next({
-    ctx: { ...ctx, user },
-  });
 });
 
 export const createRouter = t.router;
