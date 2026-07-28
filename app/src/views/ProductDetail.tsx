@@ -86,14 +86,14 @@ export default function ProductDetail({ initialProduct }: { initialProduct?: any
               <div className="flex lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto no-scrollbar py-2 lg:py-0 lg:w-20 lg:h-[600px]">
                 {images.map((img: string, i: number) => (
                   <button key={i} onClick={() => setActiveImage(i)} className={`flex-shrink-0 w-16 h-16 lg:w-20 lg:h-20 rounded-xl overflow-hidden border-2 transition-colors cursor-pointer ${activeImage === i ? 'border-[#B37943]' : 'border-transparent opacity-60 hover:opacity-100'}`}>
-                    <Image src={img} alt="Thumbnail" width={80} height={80} className="w-full h-full object-cover" />
+                    <Image src={img} alt="Thumbnail" width={80} height={80} quality={95} className="w-full h-full object-cover" />
                   </button>
                 ))}
               </div>
             )}
             <div className="relative flex-1 aspect-[4/5] lg:h-[600px] bg-[#F0E6D9] rounded-3xl overflow-hidden group">
               <AnimatePresence mode="wait">
-                <MotionImage key={activeImage} src={images[activeImage]} alt={product.name} width={1200} height={1500} priority={true} className="absolute inset-0 w-full h-full object-cover" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} drag="x" dragConstraints={{ left: 0, right: 0 }} onDragEnd={handleDragEnd} />
+                <MotionImage key={activeImage} src={images[activeImage]} alt={product.name} width={1200} height={1500} quality={95} priority={true} className="absolute inset-0 w-full h-full object-cover" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} drag="x" dragConstraints={{ left: 0, right: 0 }} onDragEnd={handleDragEnd} />
               </AnimatePresence>
               {images.length > 1 && (
                 <>

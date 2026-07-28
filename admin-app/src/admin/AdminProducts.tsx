@@ -104,6 +104,71 @@ export default function AdminProducts() {
     }
   }
 
+  /**
+   * Compresses an image file client-side using HTML5 Canvas.
+   * Resizes to max 1200px (maintaining aspect ratio) and exports as high-quality WebP.
+   * Runs entirely in the browser — no server resources used.
+   * Every error path falls back to uploading the original file.
+   */
+  async function compressImageClientSide(file: File): Promise<File> {
+    return new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.readAsDataURL(file)
+      reader.onload = (event) => {
+        const img = new window.Image()
+        img.src = event.target?.result as string
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          const MAX_DIM = 1200
+          let width = img.width
+          let height = img.height
+
+          // Scale down to fit within 1200x1200 while preserving aspect ratio
+          if (width > height) {
+            if (width > MAX_DIM) {
+              height = Math.round(height * (MAX_DIM / width))
+              width = MAX_DIM
+            }
+          } else {
+            if (height > MAX_DIM) {
+              width = Math.round(width * (MAX_DIM / height))
+              height = MAX_DIM
+            }
+          }
+
+          canvas.width = width
+          canvas.height = height
+          const ctx = canvas.getContext('2d')
+          if (!ctx) {
+            resolve(file) // Fallback: upload original if Canvas context fails
+            return
+          }
+
+          ctx.drawImage(img, 0, 0, width, height)
+
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) {
+                resolve(file) // Fallback: upload original if blob export fails
+                return
+              }
+              const compressedFile = new File(
+                [blob],
+                file.name.replace(/\.[^/.]+$/, '') + '.webp',
+                { type: 'image/webp', lastModified: Date.now() }
+              )
+              resolve(compressedFile)
+            },
+            'image/webp',
+            0.90 // 90% quality — sharp text, small file size
+          )
+        }
+        img.onerror = () => resolve(file) // Fallback: upload original on decode error
+      }
+      reader.onerror = () => resolve(file) // Fallback: upload original on read error
+    })
+  }
+
   async function processFiles(files: FileList) {
     const validFiles: File[] = []
     
@@ -130,6 +195,9 @@ export default function AdminProducts() {
       setUploadProgress(prev => ({ ...prev, [tempId]: 0 }))
 
       try {
+        // Compress image client-side before uploading (6 MB → ~100 KB)
+        const optimizedFile = await compressImageClientSide(file)
+
         const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'rootsandleaves';
         const folder = getCloudinaryFolder(form.category);
         
@@ -172,7 +240,7 @@ export default function AdminProducts() {
           xhr.onerror = () => reject(new Error('Network error during upload'))
 
           const formData = new FormData()
-          formData.append('file', file)
+          formData.append('file', optimizedFile)
           formData.append('folder', folder)
           formData.append('api_key', signData.apiKey)
           formData.append('timestamp', signData.timestamp.toString())

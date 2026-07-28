@@ -18,6 +18,9 @@ const nextConfig = {
   // ── Image Optimization ───────────────────────────────────────────────────
   images: {
     minimumCacheTTL: 31536000, // Cache optimized images locally for 1 year
+    formats: ['image/webp'],          // WebP only — AVIF uses 70% more server RAM
+    deviceSizes: [640, 750, 1080],    // Mobile, tablet, desktop breakpoints
+    imageSizes: [80, 250, 600],       // Thumbnails (80px), cards (250px), product (600px)
     remotePatterns: [
       {
         protocol: 'https',

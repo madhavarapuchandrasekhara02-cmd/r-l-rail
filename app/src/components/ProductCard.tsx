@@ -74,6 +74,7 @@ export default function ProductCard({ id, name, slug, category, images, minPrice
               alt={`${name} — Roots & Leaves premium herbal ${category.replace('-', ' ')} product`}
               width={600}
               height={750}
+              quality={95}
               sizes="(max-width: 767px) 50vw, (max-width: 1023px) 33vw, 300px"
               priority={false}
               onLoad={() => setImgLoaded(true)}
