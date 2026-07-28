@@ -418,7 +418,7 @@ export default function AdminProducts() {
       how_to_use: product.how_to_use || '',
       category: product.category,
       images: product.images || [],
-      rating: typeof product.rating === 'string' ? parseFloat(product.rating) : (product.rating || 4.5),
+      rating: typeof product.rating === 'string' ? (isNaN(parseFloat(product.rating)) ? 4.5 : parseFloat(product.rating)) : (product.rating || 4.5),
       gst_rate: product.gst_rate ?? 18,
       hsn_code: product.hsn_code ?? '33051090',
       display_order: product.display_order ?? 0,
