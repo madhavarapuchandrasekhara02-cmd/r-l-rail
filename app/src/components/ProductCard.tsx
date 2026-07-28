@@ -77,6 +77,7 @@ export default function ProductCard({ id, name, slug, category, images, minPrice
               quality={95}
               sizes="(max-width: 767px) 50vw, (max-width: 1023px) 33vw, 300px"
               priority={false}
+              unoptimized
               onLoad={() => setImgLoaded(true)}
               className={`w-full h-full object-cover object-center group-hover:scale-[1.03] transition-all duration-[600ms] ease-out ${
                 imgLoaded ? 'opacity-100 blur-none' : 'opacity-0 blur-md scale-95'
