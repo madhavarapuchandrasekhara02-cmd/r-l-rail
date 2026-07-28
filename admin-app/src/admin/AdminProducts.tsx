@@ -119,11 +119,11 @@ export default function AdminProducts() {
         img.src = event.target?.result as string
         img.onload = () => {
           const canvas = document.createElement('canvas')
-          const MAX_DIM = 1200
+          const MAX_DIM = 2000
           let width = img.width
           let height = img.height
 
-          // Scale down to fit within 1200x1200 while preserving aspect ratio
+          // Scale down to fit within 2000x2000 while preserving aspect ratio
           if (width > height) {
             if (width > MAX_DIM) {
               height = Math.round(height * (MAX_DIM / width))
