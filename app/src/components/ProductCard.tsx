@@ -69,20 +69,22 @@ export default function ProductCard({ id, name, slug, category, images, minPrice
                 <div className="w-5 h-5 border-2 border-[#B37943]/20 border-t-[#B37943] rounded-full animate-spin" />
               </div>
             )}
-            <Image
-              src={imageUrl}
-              alt={`${name} — Roots & Leaves premium herbal ${category.replace('-', ' ')} product`}
-              width={600}
-              height={750}
-              quality={95}
-              sizes="(max-width: 767px) 50vw, (max-width: 1023px) 33vw, 300px"
-              priority={false}
-              unoptimized
-              onLoad={() => setImgLoaded(true)}
-              className={`w-full h-full object-cover object-center group-hover:scale-[1.03] transition-transform duration-[600ms] ease-out [transform:translateZ(0)] ${
-                imgLoaded ? 'opacity-100' : 'opacity-0 scale-95'
-              } transition-opacity duration-300`}
-            />
+            <div className="w-full h-full overflow-hidden transition-transform duration-[600ms] ease-out group-hover:scale-[1.03] [transform:translateZ(0)]">
+              <Image
+                src={imageUrl}
+                alt={`${name} — Roots & Leaves premium herbal ${category.replace('-', ' ')} product`}
+                width={600}
+                height={750}
+                quality={95}
+                sizes="(max-width: 767px) 50vw, (max-width: 1023px) 33vw, 300px"
+                priority={false}
+                unoptimized
+                onLoad={() => setImgLoaded(true)}
+                className={`w-full h-full object-cover object-center ${
+                  imgLoaded ? 'opacity-100' : 'opacity-0'
+                } transition-opacity duration-300`}
+              />
+            </div>
           </>
         ) : (
           <div className="w-full h-full flex items-center justify-center text-[#8B7355]">
