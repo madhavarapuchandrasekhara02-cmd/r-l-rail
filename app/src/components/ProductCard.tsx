@@ -18,7 +18,7 @@ export type ProductCardProps = {
 }
 
 export default function ProductCard({ id, name, slug, category, images, minPrice, maxPrice, variants }: ProductCardProps) {
-  const imageUrl = images && images.length > 0 ? images[0] : ''
+  const imageUrl = images && images.length > 0 ? getProductImage(images[0]) : ''
   const { items, addItem, updateQuantity } = useCart()
   
   const [selectedVariant, setSelectedVariant] = useState(variants?.[0])
