@@ -27,7 +27,7 @@ export default function ProductDetail({ initialProduct }: { initialProduct?: any
 
   const handleAddToCart = () => {
     if (!product || !selectedVariant) return
-    addItem({ productId: product.id, variantId: selectedVariant.id, name: product.name, variantLabel: selectedVariant.size_label, price: selectedVariant.price, quantity, image: product.images?.[0] || '' })
+    addItem({ productId: product.id, variantId: selectedVariant.id, name: product.name, variantLabel: selectedVariant.size_label, price: selectedVariant.price, quantity, image: getThumbnailImage(product.images?.[0] || '') })
     setAdded(true)
     setTimeout(() => {
       setAdded(false)
@@ -36,7 +36,7 @@ export default function ProductDetail({ initialProduct }: { initialProduct?: any
 
   const handleBuyNow = () => {
     if (!product || !selectedVariant) return
-    addItem({ productId: product.id, variantId: selectedVariant.id, name: product.name, variantLabel: selectedVariant.size_label, price: selectedVariant.price, quantity, image: product.images?.[0] || '' })
+    addItem({ productId: product.id, variantId: selectedVariant.id, name: product.name, variantLabel: selectedVariant.size_label, price: selectedVariant.price, quantity, image: getThumbnailImage(product.images?.[0] || '') })
     router.push('/checkout')
   }
 

@@ -69,7 +69,7 @@ export default function ProductCard({ id, name, slug, category, images, minPrice
                 <div className="w-5 h-5 border-2 border-[#B37943]/20 border-t-[#B37943] rounded-full animate-spin" />
               </div>
             )}
-            <div className="w-full h-full overflow-hidden transition-transform duration-[600ms] ease-out group-hover:scale-[1.03] [transform:translateZ(0)]">
+            <div className="w-full h-full overflow-hidden transition-transform duration-[600ms] ease-out group-hover:scale-[1.03] will-change-transform [transform:translateZ(0)]">
               <Image
                 src={imageUrl}
                 alt={`${name} — Roots & Leaves premium herbal ${category.replace('-', ' ')} product`}

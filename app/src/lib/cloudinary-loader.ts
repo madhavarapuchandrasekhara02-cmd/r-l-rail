@@ -34,7 +34,7 @@ export default function cloudinaryLoader({
   const params = [
     `w_${targetWidth}`,
     `c_limit`,
-    `q_90`, // Force high quality to prevent text artifacts and keep fine label print crisp
+    `q_100`, // Force lossless quality to prevent text artifacts and keep fine label print crisp
     'e_sharpen:90', // Sharpen AI vector boundaries
     'f_auto'
   ].join(',')

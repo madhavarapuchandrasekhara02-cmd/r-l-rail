@@ -35,7 +35,7 @@ export function getOptimizedImage(url: string, options: CloudinaryOptions = {}):
     const base = url.substring(0, uploadIndex + 8); // e.g. "https://res.cloudinary.com/cloudname/image/upload/"
     const rest = url.substring(uploadIndex + 8);    // e.g. "v12345678/folder/image.jpg"
 
-    const qualityParam = options.quality ? `q_${options.quality}` : 'q_90';
+    const qualityParam = options.quality ? `q_${options.quality}` : 'q_100';
     const formatParam = options.format ? `f_${options.format}` : 'f_auto';
     const transformations: string[] = [formatParam, qualityParam, 'e_sharpen:90'];
 
@@ -61,24 +61,24 @@ export function getOptimizedImage(url: string, options: CloudinaryOptions = {}):
 }
 
 /**
- * Transforms product images to optimal card display size (800px width at q_90 quality with edge sharpening).
+ * Transforms product images to optimal card display size (800px width at q_100 quality with edge sharpening).
  */
 export function getProductImage(url: string): string {
-  return getOptimizedImage(url, { width: 800, quality: 90 });
+  return getOptimizedImage(url, { width: 800, quality: 100 });
 }
 
 /**
- * Transforms images for fast cart/checkout mini thumbnails (300px width at q_90 quality with edge sharpening).
+ * Transforms images for fast cart/checkout mini thumbnails (300px width at q_100 quality with edge sharpening).
  */
 export function getThumbnailImage(url: string): string {
-  return getOptimizedImage(url, { width: 300, height: 300, crop: 'fill', quality: 90 });
+  return getOptimizedImage(url, { width: 300, height: 300, crop: 'fill', quality: 100 });
 }
 
 /**
- * Transforms images for high-definition storefront product galleries (1600px width at q_90 quality with edge sharpening).
+ * Transforms images for high-definition storefront product galleries (1600px width at q_100 quality with edge sharpening).
  */
 export function getGalleryImage(url: string): string {
-  return getOptimizedImage(url, { width: 1600, quality: 90 });
+  return getOptimizedImage(url, { width: 1600, quality: 100 });
 }
 
 /**

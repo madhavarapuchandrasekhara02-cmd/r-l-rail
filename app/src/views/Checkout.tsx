@@ -576,7 +576,7 @@ export default function Checkout() {
                   {items.map((item) => (
                     <div key={item.variantId} className="flex gap-4 group">
                       <div className="w-20 h-24 bg-[#F0E6D9] rounded-2xl overflow-hidden shrink-0">
-                        <Image src={item.image} alt={item.name} width={80} height={96} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                        <Image src={item.image} alt={item.name} width={80} height={96} unoptimized className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                       </div>
                       <div className="flex-1 min-w-0 flex flex-col justify-between py-1">
                         <div>

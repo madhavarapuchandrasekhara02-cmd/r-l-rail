@@ -82,7 +82,7 @@ export default function CartDrawer() {
                 <div key={item.variantId} className="flex gap-3 pb-4 border-b border-[#E5C492]/15">
                   <div className="w-16 h-16 bg-[#F0E6D9] rounded-xl overflow-hidden flex-shrink-0">
                     {item.image ? (
-                      <Image src={item.image} alt={item.name} width={64} height={64} className="w-full h-full object-cover" />
+                      <Image src={item.image} alt={item.name} width={64} height={64} unoptimized className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full bg-[#F0E6D9]" />
                     )}
