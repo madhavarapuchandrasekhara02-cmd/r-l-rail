@@ -79,9 +79,9 @@ export default function ProductCard({ id, name, slug, category, images, minPrice
               priority={false}
               unoptimized
               onLoad={() => setImgLoaded(true)}
-              className={`w-full h-full object-cover object-center group-hover:scale-[1.03] transition-all duration-[600ms] ease-out ${
-                imgLoaded ? 'opacity-100 blur-none' : 'opacity-0 blur-md scale-95'
-              }`}
+              className={`w-full h-full object-cover object-center group-hover:scale-[1.03] transition-transform duration-[600ms] ease-out [transform:translateZ(0)] ${
+                imgLoaded ? 'opacity-100' : 'opacity-0 scale-95'
+              } transition-opacity duration-300`}
             />
           </>
         ) : (
