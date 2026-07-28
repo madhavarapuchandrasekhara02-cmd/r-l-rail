@@ -70,7 +70,7 @@ function RitualStoryCard({
     }
   }, [isActive, isMobile]);
 
-  const shouldPlay = isSectionInView && (isMouseDevice ? isHovered : (isMobile ? (isActive && hasUserClicked) : isHovered));
+  const shouldPlay = isSectionInView && (isMobile ? (isActive && hasUserClicked) : (isMouseDevice ? isHovered : false));
 
   const handleTogglePlay = (e: React.MouseEvent) => {
     e.stopPropagation();
