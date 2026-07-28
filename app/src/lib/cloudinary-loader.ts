@@ -28,13 +28,14 @@ export default function cloudinaryLoader({
   const prefix = cleanSrc.substring(0, uploadIndex + uploadMarker.length)
   const suffix = cleanSrc.substring(uploadIndex + uploadMarker.length)
 
-  // Enforce a minimum width of 640px to ensure pixel-perfect label readability on 2x/3x Retina screens
-  const targetWidth = width < 640 ? 640 : width
+  // Enforce a minimum width of 800px to ensure pixel-perfect label readability on 2x/3x Retina screens
+  const targetWidth = width < 800 ? 800 : width
 
   const params = [
     `w_${targetWidth}`,
     `c_limit`,
-    `q_85`, // Force high quality to prevent text artifacts and keep fine label print crisp
+    `q_90`, // Force high quality to prevent text artifacts and keep fine label print crisp
+    'e_sharpen:90', // Sharpen AI vector boundaries
     'f_auto'
   ].join(',')
 
